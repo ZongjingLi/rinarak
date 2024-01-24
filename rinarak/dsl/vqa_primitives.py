@@ -22,7 +22,7 @@ CodeBlock = baseType("CodeBlock")
 Expression = baseType("Expression")
 BooleanExpression = baseType("BooleanExpression")
 
-from karanir.utils.tensor import logit, expat
+from rinarak.utils.tensor import logit, expat
 
 
 # [Exist at Least one Element in the Set]
