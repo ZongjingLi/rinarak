@@ -13,6 +13,8 @@ from rinarak.utils.tensor import logit, expat
 from rinarak.types import baseType, arrow
 from rinarak.program import Primitive, Program
 
+from rinarak.dsl.vqa_primitives import Boolean
+
 class UnknownArgument(Exception):
     def __init__(self):super()
 
