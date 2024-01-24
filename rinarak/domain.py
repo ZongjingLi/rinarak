@@ -109,8 +109,8 @@ class Domain:
 
 #_icc_parser = Domain()
 
-def load_domain_string(domain_string):
-    tree = _icc_parser.lark.parse(domain_string)
+def load_domain_string(domain_string, default_parser = None):
+    tree = default_parser.lark.parse(domain_string)
     icc_transformer = ICCTransformer()
     icc_transformer.transform(tree)
     return icc_transformer.domain
