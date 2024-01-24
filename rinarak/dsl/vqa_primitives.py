@@ -7,8 +7,8 @@
  '''
 
 import torch
-from karanir.thanagor.types import *
-from karanir.thanagor.program import *
+from rinarak.types import *
+from rinarak.program import *
 
 # [Type Specification] of ObjectSet, Attribute, Boolean and other apsects
 ObjectSet = baseType("ObjectSet")
