@@ -20,9 +20,9 @@ def carry_func_name(name,expr_nested):
     return output, slots
 
 class Domain:
-    grammar_file = os.path.join(os.path.dirname(__file__), 'base.grammar')
-    def __init__(self):
-        with open(self.grammar_file) as file:
+    #grammar_file = os.path.join(os.path.dirname(__file__), 'base.grammar')
+    def __init__(self, grammar_file):
+        with open(grammar_file) as file:
             self.lark = Lark(file)
         self.domain_name = None # domain name indication
 
@@ -107,7 +107,7 @@ class Domain:
             print(f" name:{name}\n  params:{params}\n  precond:{precond}\n  effect:{effect}")
         print(self.implementations)
 
-_icc_parser = Domain()
+#_icc_parser = Domain()
 
 def load_domain_string(domain_string):
     tree = _icc_parser.lark.parse(domain_string)
