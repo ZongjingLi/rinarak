@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="rinarakr",
+    name="rinarak",
     version="1.0",
     author="Yiqi Sun (Zongjing Li)",
     author_email="ysun697@gatech.edu",
