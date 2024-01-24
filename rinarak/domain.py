@@ -24,6 +24,7 @@ class Domain:
     def __init__(self, grammar_file):
         with open(grammar_file) as file:
             self.lark = Lark(file)
+        self.grammar_file = grammar_file
         self.domain_name = None # domain name indication
 
         self.types = {} # types as a diction, map from the type name to the actual type object
@@ -111,7 +112,7 @@ class Domain:
 
 def load_domain_string(domain_string, default_parser = None):
     tree = default_parser.lark.parse(domain_string)
-    icc_transformer = ICCTransformer()
+    icc_transformer = ICCTransformer(default_parser.grammar_file)
     icc_transformer.transform(tree)
     return icc_transformer.domain
 
@@ -124,9 +125,9 @@ def to_lambda_expression(list):
     return expr
 
 class ICCTransformer(Transformer):
-    def __init__(self):
+    def __init__(self, grammar_file = None):
         super().__init__()
-        self.domain = Domain()
+        self.domain = Domain(grammar_file)
 
     def domain_definition(self, domain_name):
         domain_name = domain_name[0]
