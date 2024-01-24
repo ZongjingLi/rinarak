@@ -20,7 +20,7 @@ def carry_func_name(name,expr_nested):
     return output, slots
 
 class Domain:
-    grammar_file = os.path.join(os.path.dirname(__file__), 'base.grammar')
+    grammar_file = os.path.join(os.path.dirname(__file__), 'rinarak/base.grammar')
     def __init__(self):
         with open(self.grammar_file) as file:
             self.lark = Lark(file)
