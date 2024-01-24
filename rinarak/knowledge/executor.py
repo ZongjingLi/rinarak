@@ -7,12 +7,11 @@ from torch.nn import functional as F
 from .embedding  import build_box_registry
 from .entailment import build_entailment
 from .predicates import PredicateFilter
-from karanir.utils import freeze
-from karanir.utils.misc import *
-from karanir.utils.tensor import logit, expat
-from karanir.thanagor.types import baseType, arrow
-from karanir.thanagor.program import Primitive, Program
-from karanir.thanagor.dsl.vqa_primitives import Boolean
+from rinarak.utils import freeze
+from rinarak.utils.misc import *
+from rinarak.utils.tensor import logit, expat
+from rinarak.types import baseType, arrow
+from rinarak.program import Primitive, Program
 
 class UnknownArgument(Exception):
     def __init__(self):super()
