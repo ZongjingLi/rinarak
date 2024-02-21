@@ -1,0 +1,10 @@
+body {
+    background-color:#ffffff;
+    margin-left: 20%;
+    margin-right: 20%;
+    text-shadow: 10px;
+}
+
+joint-chart {
+    align-items: center;
+}
