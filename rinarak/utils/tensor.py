@@ -27,44 +27,6 @@ def expat(tens, idx, num):
 def stats_summary(tens):
     print("shape:{} max:{} min:{}".format(str(list(tens.shape)),tens.max(),tens.min()))
 
-def local_to_sparse_global_affinity(local_adj, sample_inds, activated=None, sparse_transpose=False):
-    """
-    Convert local adjacency matrix of shape [B, N, K] to [B, N, N]
-    :param local_adj: [B, N, K]
-    :param size: [H, W], with H * W = N
-    :return: global_adj [B, N, N]
-    """
-
-    B, N, K = list(local_adj.shape)
-
-    if sample_inds is None:
-        return local_adj
-
-    assert sample_inds.shape[0] == 3
-    local_node_inds = sample_inds[2] # [B, N, K]
-
-    batch_inds = torch.arange(B).reshape([B, 1]).to(local_node_inds)
-    node_inds = torch.arange(N).reshape([1, N]).to(local_node_inds)
-    row_inds = (batch_inds * N + node_inds).reshape(B * N, 1).expand(-1, K).flatten()  # [BNK]
-
-    col_inds = local_node_inds.flatten()  # [BNK]
-    valid = col_inds < N
-
-    col_offset = (batch_inds * N).reshape(B, 1, 1).expand(-1, N, -1).expand(-1, -1, K).flatten() # [BNK]
-    col_inds += col_offset
-    value = local_adj.flatten()
-
-    if activated is not None:
-        activated = activated.reshape(B, N, 1).expand(-1, -1, K).bool()
-        valid = torch.logical_and(valid, activated.flatten())
-
-    if sparse_transpose:
-        global_adj = SparseTensor(row=col_inds[valid], col=row_inds[valid],
-                                  value=value[valid], sparse_sizes=[B*N, B*N])
-    else:
-        raise ValueError('Current KP implementation assumes tranposed affinities')
-
-    return global_adj
 
 def apply(x, f):
     if torch.is_tensor(x):
