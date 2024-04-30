@@ -50,12 +50,13 @@ def get_params(ps, token):
 class CentralExecutor(nn.Module):
     NETWORK_REGISTRY = {}
 
-    def __init__(self, domain, config):
+    def __init__(self, domain, concept_type = "cone", concept_dim = 100):
         super().__init__()
         BIG_NUMBER = 100
+        entries = 64
 
-        self.entailment = build_entailment(config)
-        self.concept_registry = build_box_registry(config)
+        self.entailment = build_entailment(concept_type, concept_dim)
+        self.concept_registry = build_box_registry(concept_type, concept_dim, entries)
 
         # [Types]
         self.types = domain.types
@@ -89,7 +90,7 @@ class CentralExecutor(nn.Module):
         self.actions = domain.actions
 
         # [Word Vocab]
-        self.relation_encoder = nn.Linear(config.object_dim * 2, config.object_dim)
+        #self.relation_encoder = nn.Linear(config.object_dim * 2, config.object_dim)
 
         self.concept_vocab = []
         for arity in self.predicates:
@@ -119,6 +120,12 @@ class CentralExecutor(nn.Module):
         if warning:
             print("Warning: exists predicates not implemented.")
             return False
+    
+    def redefine_predicate(self, name, func):
+        for predicate in Primitive.GLOBALS:
+            if predicate== name:
+                Primitive.GLOBALS[name].value = func
+        return True
  
     def evaluate(self, program, context):
         """program as a string to evaluate under the context
@@ -256,44 +263,3 @@ class CentralExecutor(nn.Module):
     def forward(self, q, **kwargs):
         self.kwargs = kwargs
         return q(self)
-
-
-class MetaLearner(nn.Module):
-
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-        name = MetaLearner.get_name(cls.__name__)
-        CentralExecutor.NETWORK_REGISTRY[name] = cls
-        cls.name = name
-
-    @staticmethod
-    def get_name(name):
-        return name[:-len('Learner')]
-
-    def forward(self, p):
-        return {}
-
-    def compute_logits(self, p, **kwargs):
-        return p.evaluate_logits(self, **kwargs)
-
-
-class PipelineLearner(nn.Module):
-    def __init__(self, network, entailment):
-        super().__init__()
-        self.network = network
-        self.entailment = entailment
-
-    def forward(self, p):
-        shots = []
-        for q in p.train_program:
-            end = q(self)["end"]
-            index = end.squeeze(0).max(0).indices
-            shots.append(q.object_collections[index])
-        shots = torch.stack(shots)
-        if not p.is_fewshot:
-            shots = shots[0:0]
-        fewshot = p.to_fewshot(shots)
-        return fewshot(self)
-
-    def compute_logits(self, p, **kwargs):
-        return self.network.compute_logits(p, **kwargs)

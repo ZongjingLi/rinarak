@@ -5,11 +5,11 @@ from torch import nn
 class BoxRegistry(nn.Module):
     _init_methods = {"uniform": torch.nn.init.uniform_}
 
-    def __init__(self, config):
+    def __init__(self, dim, entries, center = [0.1, -0.1], offset = [0.1,0.5]):
         super().__init__()
-        self.dim = config.concept_dim
+        self.dim = dim
 
-        entries = config.entries
+        entries = entries
         self.entries = entries
 
         init_config = config
@@ -19,7 +19,7 @@ class BoxRegistry(nn.Module):
         self.offset_clamp = config.center
     
     def _init_embedding_(self, entries, config):
-        init_method = config.method
+        init_method = self._init_methods["uniform"]#config.method
         center = torch.Tensor(entries, self.dim)
         offset = torch.Tensor(entries, self.dim)
         self._init_methods[init_method](center, *config.center)
@@ -56,10 +56,10 @@ class BoxRegistry(nn.Module):
 
 class PlaneRegistry(nn.Module):
 
-    def __init__(self, config):
+    def __init__(self, dim, entries):
         super().__init__()
-        self.dim = config.concept_dim
-        self.planes = nn.Embedding(config.entries, self.dim)
+        self.dim = dim
+        self.planes = nn.Embedding(entries, self.dim)
         with torch.no_grad():
             self.planes.weight.abs_()
 
@@ -91,10 +91,10 @@ class PlaneRegistry(nn.Module):
 
 class ConeRegistry(nn.Module):
 
-    def __init__(self, config):
+    def __init__(self, dim, entries):
         super().__init__()
-        self.dim = config.concept_dim
-        self.cones = self._init_embedding_(config.entries)
+        self.dim = dim
+        self.cones = self._init_embedding_(entries)
 
     def _init_embedding_(self, entries):
         weight = torch.Tensor(entries, self.dim).normal_().abs_()
@@ -128,4 +128,4 @@ class ConeRegistry(nn.Module):
 
 registry_map = {"box": BoxRegistry, "cone": ConeRegistry, "plane": PlaneRegistry, }
 
-def build_box_registry(config):return registry_map[config.concept_type](config)
+def build_box_registry(concept_type, dim, entries):return registry_map[concept_type](dim, entries)

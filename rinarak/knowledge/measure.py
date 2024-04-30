@@ -5,10 +5,10 @@ import torch.nn.functional as F
 from rinarak.utils import EPS
 
 class Measure(nn.Module):
-    def __init__(self, config):
+    def __init__(self, dim, temperature = 0.2):
         super().__init__()
-        self.dim = config.concept_dim
-        self.temperature = config.temperature
+        self.dim = dim
+        self.temperature = temperature
 
     def forward(self, x):
         
