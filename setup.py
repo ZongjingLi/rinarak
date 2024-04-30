@@ -15,8 +15,6 @@ setup(
     package_data={
         'rinarak': ['rinarak/*.grammar']
         },
-        
-    
 )
 
 """
