@@ -258,6 +258,7 @@ class CentralExecutor(nn.Module):
         device = "cuda:0" if torch.cuda.is_available() else "cpu"
         concept_index = self.concept_vocab.index(concept)
         idx = torch.tensor(concept_index).unsqueeze(0).to(device)
+
         return self.concept_registry(idx)
 
     def forward(self, q, **kwargs):
