@@ -197,8 +197,8 @@ class CentralExecutor(nn.Module):
 
         # perform value assignment
         effect_output = self.evaluate(effect_expr, context_params)
-        context["is-red"][0] *= (1 - precond)
-        context["is-red"][0] += precond * context["is-red"][2]
+        #context["is-red"][0] *= (1 - precond)
+        #context["is-red"][0] += precond * context["is-red"][2]
 
     def execute(self,program_result, t = 1.0):
         for result in program_result:
