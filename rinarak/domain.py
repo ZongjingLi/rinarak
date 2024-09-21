@@ -71,14 +71,12 @@ class Domain:
         self.type_constraints[name] = list(controls)
     
     def define_derived(self, name, params, expr):
-        #print(name, params, expr)
         carry_name, slots = carry_func_name(name, expr)
         expr_str = to_lambda_expression(carry_name)
-        #print(expr)
-        #self.register_slots(name, expr)
+
         for slot in slots:
             self.implementations[slot] = None
-        self.derived[name] = {"parameters":params, "expr":expr_str}
+        self.derived[name] = {"name":name, "parameters":params, "expr":expr_str}
     
     def register_slots(self, name, expr_list):
         #TODO: write a version that transforms the lambda expr to nested list

@@ -8,7 +8,6 @@
 
 from dataclasses import dataclass
 from webbrowser import get
-from karanir.thanagor.types import *
 
 from typing import TypeVar, List, Callable, Iterator, Tuple, Set
 import heapq as hq
@@ -84,15 +83,17 @@ def run_heuristic_search(
     queue: List[QueueNode] = list()
     visited: Set[State] = set()
     def push_node(node: SearchNode):
-        hq.headppush(queue, QueueNode(get_priority(node.state, node.g), node))
+        hq.heappush(queue, QueueNode(get_priority(node.state, node.g), node))
         if check_visited:
             visited.add(node.state)
-    root_node = SearchNode(state = init_state, parent = None, action = None, cost = None, g = 0)
+    root_node = SearchNode(state = init_state, parentNode = None, action = None, cost = None, g = 0)
     push_node(root_node)
     num_expansions = 0
+    #print(root_node.state.state["red"], root_node.state.state["green"])
     
     while len(queue) > 0 and num_expansions < max_expansions:
         prioirty, node = hq.heappop(queue)
+        #print(node.state.state["red"], node.state.state["green"])
         if node.g > max_depth:
             raise RuntimeError()
         if check_goal(node.state):
@@ -101,7 +102,9 @@ def run_heuristic_search(
         for action, child_state, cost in get_successors(node.state):
             if check_visited and child_state in visited:
                 continue
-            child_node = SearchNode(state = child_state, parent=node, action=action, cost=cost, g = node.g + cost)
+            
+            child_node = SearchNode(state = child_state, parentNode=node, action=action, cost=cost, g = node.g + cost)
+            #print(node.state.state["red"], node.state.state["green"])
             push_node(child_node)
     
     raise RuntimeError("Failed to find a plan (maximum expansion reached)")
@@ -119,10 +122,11 @@ def backtrace_plan(node: SearchNode, nr_expansions: int) -> Tuple[List[State], L
     state_sequence = []
     action_sequence = []
     cost_sequence = []
-    while node.parent is not None:
+    
+    while node.parentNode is not None:
         state_sequence.insert(0, node.state)
         action_sequence.insert(0, node.action)
         cost_sequence.insert(0, node.cost)
-        node = node.parent
+        node = node.parentNode
     state_sequence.insert(0, node.state)
-    return state_sequence, action_sequence, cost_sequence, num_expansions
+    return state_sequence, action_sequence, cost_sequence, nr_expansions

@@ -103,6 +103,8 @@ class PointNetfeat(nn.Module):
 
     def forward(self, x):
         n_pts = x.size()[1]
+        batch_size = x.shape[0]
+        if batch_size == 1: x = x.repeat(2, 1, 1)
         x = x.permute(0,2,1)
         trans = self.stn(x)
         x = x.transpose(2, 1)
@@ -124,7 +126,7 @@ class PointNetfeat(nn.Module):
         x = torch.max(x, 2, keepdim=True)[0]
         x = x.view(-1, 1024)
         if self.global_feat:
-            return x#, trans, trans_feat
+            return x[:batch_size,:]#, trans, trans_feat
         else:
             x = x.view(-1, 1024, 1).repeat(1, 1, n_pts)
             return torch.cat([x, pointfeat], 1), trans, trans_feat

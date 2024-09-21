@@ -12,10 +12,10 @@ class Measure(nn.Module):
 
     def forward(self, x):
         
-        return torch.sum(torch.log(self.softplus(x[..., self.dim:])), dim=-1)
+        return torch.sum(torch.log(F.softplus(x[..., self.dim:])), dim=-1)
 
     def measure_along_axis(self, x):
-        return self.softplus(x[..., self.dim:])
+        return F.softplus(x[..., self.dim:])
 
     @classmethod
     def log2logit(cls, log):
