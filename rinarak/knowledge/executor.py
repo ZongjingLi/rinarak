@@ -19,7 +19,7 @@ import copy
 import re
 from itertools import combinations
 
-import re
+import random
 
 def split_components(input_string):
     pattern = r'\([^)]*\)'
@@ -287,7 +287,8 @@ class CentralExecutor(nn.Module):
 
         """Evaluate the probabilitstic precondition (not quantized)"""
         precond = self.evaluate(precond_expr,context_params)["end"].reshape([-1])
-
+        #print(precond_expr)
+        #print(effect_expr)
 
         assert precond.shape == torch.Size([1]),print(precond.shape)
         if self.quantized: precond = precond > 0.0 
@@ -300,13 +301,16 @@ class CentralExecutor(nn.Module):
         
         output_context = {**context}
         for assign in effect_output["end"]:
+            #print(assign)
             condition = torch.min(assign["c"].sigmoid(), precond)
   
-            apply_predicate = assign["to"]
-            apply_index = assign["idx"]
-            source_value = assign["value"]
+            apply_predicate = assign["to"] # name of predicate
+            apply_index = assign["x"] # remind that x is the index
+            source_value = assign["v"] # value to assign to x
+
 
             assign_mask = torch.zeros_like(output_context[apply_predicate]).to(self.device)
+
             if not isinstance(apply_index,list): apply_index = [apply_index]
             apply_index = list(torch.tensor(apply_index))
             
@@ -347,7 +351,12 @@ class CentralExecutor(nn.Module):
 
         return self.concept_registry(idx)
     
-    def search_discrete_state(self, state, goal):
+    def entail(self, feature, key): 
+        if len(feature.shape) == 1: feature = feature.unsqueeze(0)
+        return torch.einsum("nd,kd->n", feature, self.get_concept_embedding(key))
+
+    
+    def search_discrete_state(self, state, goal, max_expansion = 10000, max_depth = 10000):
         init_state = QuantizeTensorState(state = state)
 
         class ActionIterator:
@@ -363,7 +372,10 @@ class CentralExecutor(nn.Module):
                 obj_indices = list(range(num_actions))
                 for action_name in self.action_names:
                     params = list(range(len(self.actions[action_name].parameters)))
+                    
                     for param_idx in combinations(obj_indices, len(params)):
+                        #if action_name == "spreader" and 0 in param_idx and 3 in param_idx: print("GOOD:",action_name, list(param_idx))
+                        #print(action_name, list(param_idx))
                         self.apply_sequence.append([
                             action_name, list(param_idx)
                         ])
@@ -378,22 +390,22 @@ class CentralExecutor(nn.Module):
                 context = copy.copy(self.state.state)
                 
                 action_chosen, params = self.apply_sequence[self.counter]
-                #print(action_chosen+str(params),context["red"])
+                #if action_chosen == "spreader" and 0 in params and 3 in params:print(action_chosen+str(params),context["red"] > 0)
 
                 precond, state = self.executor.apply_action(action_chosen, params, context = context)
+                
+                #if action_chosen == "spreader" and 0 in params and 3 in params:print(state["red"] > 0)
+                
                 self.counter += 1
                 state["executor"] = None
 
                 return (action_chosen+str(params), QuantizeTensorState(state=state), -1 * torch.log(precond))
         
         def goal_check(searchState):
-            return self.evaluate(goal,
-                                 {0:
-                                    {"end":searchState.state["end"],
-                                    "context":searchState.state}
-                                  })["end"] > 0.0
+            return self.evaluate(goal,{0 :searchState.state})["end"] > 0.0
 
-        def get_priority(x, y): return 1
+
+        def get_priority(x, y): return 1.0 + random.random()
 
         def state_iterator(state: QuantizeTensorState):
             actions = self.actions
@@ -405,8 +417,8 @@ class CentralExecutor(nn.Module):
             get_priority,
             state_iterator,
             False,
-            100,
-            10
+            max_expansion,
+            max_depth
             )
         
         return states, actions, costs, nr_expansions

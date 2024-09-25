@@ -62,8 +62,8 @@ def run_heuristic_search(
     get_priority: Callable[[State, int], float],
     get_successors: Callable[[State], Iterator[Tuple[Action, State, float]]],
     check_visited: bool = True,
-    max_expansions: int = 10000,
-    max_depth: int = 1000
+    max_expansions: int = 100000,
+    max_depth: int = 100000
 ):
     """
     A generic implementation for the heuristic search
@@ -96,6 +96,7 @@ def run_heuristic_search(
         #print(node.state.state["red"], node.state.state["green"])
         if node.g > max_depth:
             raise RuntimeError()
+        
         if check_goal(node.state):
             return backtrace_plan(node, num_expansions)
         num_expansions += 1

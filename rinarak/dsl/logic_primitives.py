@@ -44,11 +44,6 @@ def type_filter(objset,concept,exec):
    
     return torch.min(objset["end"],filter_logits)
 
-def refractor(exe, name):
-    exe.redefine_predicate(
-        name,
-        lambda x: {**x,"from":name, "set":x["end"], "end": type_filter(x, name, x["context"]["executor"]) }
-    )
 
 # end points to train the clustering methods using uniform same or different.
 operator_uniform_attribute = Primitive("uniform_attribute",
@@ -62,7 +57,7 @@ operator_equal_attribute = Primitive("equal_attribute",
 
 def condition_assign(x, y):
     """evaluate the expression x, y and return the end as an assignment operation"""
-    return {**x, "end": [{"x": x["set"],"y": y["set"], "v" : y["end"], "c": torch.tensor(infinity, device = device), "to": x["from"]}]}
+    return {**x, "end": [{"x": x["idx"], "v" : y["end"], "c": torch.tensor(infinity, device = device), "to": x["from"]}]}
 
 operator_assign_attribute = Primitive("assign",arrow(boolean, boolean, boolean),
                                       lambda x: lambda y: condition_assign(x, y))
@@ -74,7 +69,6 @@ def condition_if(x, y):
         code_condition = code["c"] if isinstance(code["c"], torch.Tensor) else torch.tensor(code["c"])
         assign_operation = {
             "x": code["x"],
-            "y": code["y"],
             "v": code["v"],
             "c": torch.min(code_condition, torch.max(x["end"])),
             "to": code["to"],
