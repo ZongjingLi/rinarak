@@ -11,11 +11,11 @@ from rinarak.types import *
 from rinarak.program import *
 
 # [Type Specification] of ObjectSet, Attribute, Boolean and other apsects
-ObjectSet = baseType("ObjectSet")
-Attribute = baseType("Attribute")
-Boolean = baseType("Boolean")
-Concept = baseType("Concept")
-Integer = baseType("Integer")
+fuzzyset = baseType("ObjectSet")
+attribute = baseType("Attribute")
+boolean = baseType("Boolean")
+concept = baseType("Concept")
+integer = baseType("Integer")
 CodeBlock = baseType("CodeBlock")
 
 # [Augumented Type Expression]

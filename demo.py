@@ -1,7 +1,7 @@
 
 from rinarak.domain import load_domain_string, Domain
 
-from rinarak.dsl.vqa_primitives import *
+from rinarak.dsl.logic_primitives import *
 
 demo_domain_string = f"""
 (domain scourge_demo)
@@ -47,7 +47,7 @@ domain = load_domain_string(demo_domain_string, icc_parser)
 domain.print_summary()
 
 from rinarak.knowledge.executor import CentralExecutor
-from rinarak.dsl.vqa_primitives import *
+from rinarak.dsl.logic_primitives import *
 executor = CentralExecutor(domain)
 executor.redefine_predicate("is-red", 
                             lambda x: {**x, "end":torch.min(x["end"], torch.tensor([-4.0,-2.0]))}

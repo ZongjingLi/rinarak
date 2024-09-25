@@ -1,8 +1,8 @@
-from .vqa_types import *
+from .logic_types import *
 # [Exist at Least one Element in the Set]
 t_exists = Primitive(
     "exists",
-    arrow(ObjectSet, Boolean),
+    arrow(fuzzyset, boolean),
     lambda x:{"end":torch.max(x["end"]), "executor":x["executor"]})
 
 # [Filter Attribute Concept]
@@ -21,7 +21,7 @@ def type_filter(objset,concept,executor):
 """This method will be deprecated soon, please use eFilter operator"""
 tFilter = Primitive(
     "filter",
-    arrow(ObjectSet, Concept, ObjectSet),
+    arrow(fuzzyset, concept, fuzzyset),
     lambda objset: lambda concept: type_filter(objset, concept, objset["executor"]))
 
 def expression_filter(objset, expr, executor):
@@ -30,7 +30,7 @@ def expression_filter(objset, expr, executor):
 
 eFilter = Primitive(
     "filter_expr()",
-    arrow(ObjectSet, BooleanExpression, ObjectSet),
+    arrow(fuzzyset, BooleanExpression, fuzzyset),
     lambda objset: lambda expr: expression_filter(objset, expr, objset["executor"]))
 
 def relate(x,y,z):
@@ -46,42 +46,42 @@ def relate(x,y,z):
     return {"end":new_logits, "executor":x["executor"]}
 def Relate(x):
     return lambda y: lambda z: relate(x,y,z)
-tRelate = Primitive("relate",arrow(ObjectSet, ObjectSet, Concept, ObjectSet), Relate)
+tRelate = Primitive("relate",arrow(fuzzyset, fuzzyset, concept, fuzzyset), Relate)
 
 # [Intersect Sets]{
 def Intersect(x): return lambda y: {"end":torch.min(x, y)}
-tIntersect = Primitive("intersect",arrow(ObjectSet, ObjectSet, ObjectSet), Intersect)
+tIntersect = Primitive("intersect",arrow(fuzzyset, fuzzyset, fuzzyset), Intersect)
 
 def Union(x): return lambda y: {"end":torch.max(x["end"], y["end"])}
-tUnion = Primitive("equal",arrow(ObjectSet, ObjectSet, ObjectSet), Union)
+tUnion = Primitive("equal",arrow(fuzzyset, fuzzyset, fuzzyset), Union)
 
 # [Do Some Counting]
 def Count(x):return {"end":torch.sigmoid(x["end"]).sum(-1), "executor":x["executor"]}
-tCount = Primitive("count",arrow(ObjectSet, tint), Count)
+tCount = Primitive("count",arrow(fuzzyset, tint), Count)
 
 def Equal(x):return lambda y:  {"end":8 * (.5 - (x - y).abs()), "executor":x["executor"]}
-tEqual = Primitive("equal",arrow(treal, treal, Boolean), Equal)
+tEqual = Primitive("equal",arrow(treal, treal, boolean), Equal)
 
 def If(x,y): x["executor"].execute(y,x["end"])
 
-tIf = Primitive("if", arrow(Boolean, CodeBlock), If)
+tIf = Primitive("if", arrow(boolean, CodeBlock), If)
 
 def Assign(x, y):return {"end1":x["end"], "end2":y["end"]}
-tAssign = Primitive("assign", arrow(Attribute, Attribute), Assign)
+tAssign = Primitive("assign", arrow(attribute, attribute), Assign)
 
 def Forall(condition,set): return 
-tForall = Primitive("forall", Boolean, Forall)
+tForall = Primitive("forall", boolean, Forall)
 
 def And(x): return lambda y: {"end":torch.min(x["end"],y["end"])}
-tAnd = Primitive("and", arrow(Boolean, Boolean, Boolean), And)
+tAnd = Primitive("and", arrow(boolean, boolean, boolean), And)
 
 def Or(x): return lambda y: {"end": torch.max(x["end"],y["end"])}
-tOr = Primitive("or", arrow(Boolean, Boolean, Boolean), Or)
+tOr = Primitive("or", arrow(boolean, boolean, boolean), Or)
 
-tTrue = Primitive("true",Boolean,{"end":logit(torch.tensor(1.0))})
-tFalse = Primitive("false",Boolean,{"end":logit(torch.tensor(0.0))})
+tTrue = Primitive("true",boolean,{"end":logit(torch.tensor(1.0))})
+tFalse = Primitive("false",boolean,{"end":logit(torch.tensor(0.0))})
 
-tPr = Primitive("Pr", arrow(ObjectSet,Concept,ObjectSet),
+tPr = Primitive("Pr", arrow(fuzzyset,concept,fuzzyset),
     lambda x: lambda y: {"logits":x["executor"].entailment(x["features"],
             x["executor"].get_concept_embedding(y))}
 )

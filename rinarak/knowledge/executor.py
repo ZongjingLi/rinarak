@@ -12,7 +12,7 @@ from rinarak.utils.misc import *
 from rinarak.utils.tensor import logit, expat
 from rinarak.types import baseType, arrow
 from rinarak.program import Primitive, Program
-from rinarak.dsl.vqa_types import Boolean
+from rinarak.dsl.logic_types import boolean
 from rinarak.algs.search.heuristic_search import run_heuristic_search
 from dataclasses import dataclass
 import copy
@@ -132,7 +132,7 @@ class CentralExecutor(nn.Module):
                 self.predicates[arity] = []
             
             #predicate_imp = PredicateFilter(predicate_name,arity)
-            self.predicates[arity].append(Primitive(predicate_name,arrow(Boolean, Boolean),predicate_name))
+            self.predicates[arity].append(Primitive(predicate_name,arrow(boolean, boolean),predicate_name))
         # [Derived]
         self.derived = domain.derived
         for name in self.derived:
@@ -145,7 +145,7 @@ class CentralExecutor(nn.Module):
                 self.predicates[arity] = []
             
             #predicate_imp = PredicateFilter(predicate_name,arity)
-            self.predicates[arity].append(Primitive(name,arrow(Boolean, Boolean), name))
+            self.predicates[arity].append(Primitive(name,arrow(boolean, boolean), name))
 
         # [Actions]
         self.actions = domain.actions
@@ -163,7 +163,7 @@ class CentralExecutor(nn.Module):
         for implement_key in domain.implementations:
             
             effect = domain.implementations[implement_key]
-            self.implement_registry[implement_key] = Primitive(implement_key,arrow(Boolean,Boolean),effect)
+            self.implement_registry[implement_key] = Primitive(implement_key,arrow(boolean,boolean),effect)
 
         # copy the implementations from the registry
 

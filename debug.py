@@ -1,6 +1,6 @@
 from rinarak.program import *
 from rinarak.types import *
-from rinarak.dsl.vqa_primitives import *
+from rinarak.dsl.logic_primitives import *
 
 tone = Primitive("1",arrow(tint), 1)
 plus = Primitive("plus",arrow(tint,tint,tint), lambda x: lambda y: x + y)
