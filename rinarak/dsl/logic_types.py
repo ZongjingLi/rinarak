@@ -11,15 +11,12 @@ from rinarak.types import *
 from rinarak.program import *
 
 # [Type Specification] of ObjectSet, Attribute, Boolean and other apsects
-fuzzyset = baseType("ObjectSet")
+Stream = baseType("Stream")
+fuzzy_set = baseType("ObjectSet")
+PrimitiveSet = baseType("PrimitiveSet")
 attribute = baseType("Attribute")
 boolean = baseType("Boolean")
-concept = baseType("Concept")
+Concept = baseType("Concept")
 integer = baseType("Integer")
-CodeBlock = baseType("CodeBlock")
-
-# [Augumented Type Expression]
-Expression = baseType("Expression")
-BooleanExpression = baseType("BooleanExpression")
 
 from rinarak.utils.tensor import logit, expat

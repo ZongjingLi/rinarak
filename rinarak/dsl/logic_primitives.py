@@ -1,87 +1,92 @@
 from .logic_types import *
-# [Exist at Least one Element in the Set]
-t_exists = Primitive(
+
+infinity = 1e9
+device = "cuda:0" if torch.cuda.is_available() else "cpu"
+# [Existianial quantification, exists, forall]
+operator_exists = Primitive(
     "exists",
-    arrow(fuzzyset, boolean),
-    lambda x:{"end":torch.max(x["end"]), "executor":x["executor"]})
+    arrow(fuzzy_set, boolean),
+    lambda x:{**x,
+    "end":torch.max(x["end"], dim = -1).values})
 
-# [Filter Attribute Concept]
-def type_filter(objset,concept,executor):
-    filter_logits = torch.zeros_like(objset["end"])
-    parent_type = executor.get_type(concept)
-    for candidate in executor.type_constraints[parent_type]:
-        filter_logits += executor.entailment(objset["features"],
-            executor.get_concept_embedding(candidate)).sigmoid()
+operator_forall = Primitive(
+    "forall",
+    arrow(fuzzy_set, boolean),
+    lambda x:{**x,
+    "end":torch.min(x["end"], dim = -1).values})
 
-    div = executor.entailment(objset["features"],
-            executor.get_concept_embedding(concept)).sigmoid()
-    filter_logits = logit(div / filter_logits)
-    return{"end":torch.min(objset["end"],filter_logits), "executor":objset["executor"]}
-    
-"""This method will be deprecated soon, please use eFilter operator"""
-tFilter = Primitive(
-    "filter",
-    arrow(fuzzyset, concept, fuzzyset),
-    lambda objset: lambda concept: type_filter(objset, concept, objset["executor"]))
-
-def expression_filter(objset, expr, executor):
-    expr_logits = executor.evaluate(expr, objset["features"])
-    return {"end":torch.min(objset["end"], expr_logits)}
-
-eFilter = Primitive(
-    "filter_expr()",
-    arrow(fuzzyset, BooleanExpression, fuzzyset),
-    lambda objset: lambda expr: expression_filter(objset, expr, objset["executor"]))
-
-def relate(x,y,z):
-    EPS = 1e-6;
-    #expand_maks = torch.matmul
-    mask = x["executor"].entailment(x["relations"],x["executor"].get_concept_embedding(z))
-    N, N = mask.shape
- 
-    score_expand_mask = torch.min(expat(x["end"],0,N),expat(x["end"],1,N))
-
-    new_logits = torch.min(mask, score_expand_mask)
-
-    return {"end":new_logits, "executor":x["executor"]}
-def Relate(x):
-    return lambda y: lambda z: relate(x,y,z)
-tRelate = Primitive("relate",arrow(fuzzyset, fuzzyset, concept, fuzzyset), Relate)
-
-# [Intersect Sets]{
-def Intersect(x): return lambda y: {"end":torch.min(x, y)}
-tIntersect = Primitive("intersect",arrow(fuzzyset, fuzzyset, fuzzyset), Intersect)
-
-def Union(x): return lambda y: {"end":torch.max(x["end"], y["end"])}
-tUnion = Primitive("equal",arrow(fuzzyset, fuzzyset, fuzzyset), Union)
-
-# [Do Some Counting]
-def Count(x):return {"end":torch.sigmoid(x["end"]).sum(-1), "executor":x["executor"]}
-tCount = Primitive("count",arrow(fuzzyset, tint), Count)
-
-def Equal(x):return lambda y:  {"end":8 * (.5 - (x - y).abs()), "executor":x["executor"]}
-tEqual = Primitive("equal",arrow(treal, treal, boolean), Equal)
-
-def If(x,y): x["executor"].execute(y,x["end"])
-
-tIf = Primitive("if", arrow(boolean, CodeBlock), If)
-
-def Assign(x, y):return {"end1":x["end"], "end2":y["end"]}
-tAssign = Primitive("assign", arrow(attribute, attribute), Assign)
-
-def Forall(condition,set): return 
-tForall = Primitive("forall", boolean, Forall)
-
-def And(x): return lambda y: {"end":torch.min(x["end"],y["end"])}
-tAnd = Primitive("and", arrow(boolean, boolean, boolean), And)
-
-def Or(x): return lambda y: {"end": torch.max(x["end"],y["end"])}
-tOr = Primitive("or", arrow(boolean, boolean, boolean), Or)
-
-tTrue = Primitive("true",boolean,{"end":logit(torch.tensor(1.0))})
-tFalse = Primitive("false",boolean,{"end":logit(torch.tensor(0.0))})
-
-tPr = Primitive("Pr", arrow(fuzzyset,concept,fuzzyset),
-    lambda x: lambda y: {"logits":x["executor"].entailment(x["features"],
-            x["executor"].get_concept_embedding(y))}
+operator_equal_concept = Primitive(
+    "equal_concept",
+    arrow(fuzzy_set, fuzzy_set, boolean),
+    "Not Implemented"
 )
+
+# make reference to the objects in the scene
+operator_related_concept = Primitive(
+    "relate",
+    arrow(fuzzy_set, fuzzy_set, boolean),
+    "Not Implemented"
+)
+
+def type_filter(objset,concept,exec):
+    if concept in objset["context"]: return torch.min(objset["context"][concept], objset["end"])
+
+    filter_logits = torch.zeros_like(objset["end"])
+    parent_type = exec.get_type(concept)
+    for candidate in exec.type_constraints[parent_type]:
+        filter_logits += exec.entailment(objset["context"]["features"],
+            exec.get_concept_embedding(candidate)).sigmoid()
+
+    div = exec.entailment(objset["context"]["features"],
+            exec.get_concept_embedding(concept)).sigmoid()
+
+    filter_logits = logit(div / filter_logits)
+   
+    return torch.min(objset["end"],filter_logits)
+
+def refractor(exe, name):
+    exe.redefine_predicate(
+        name,
+        lambda x: {**x,"from":name, "set":x["end"], "end": type_filter(x, name, x["context"]["executor"]) }
+    )
+
+# end points to train the clustering methods using uniform same or different.
+operator_uniform_attribute = Primitive("uniform_attribute",
+                                       arrow(fuzzy_set, boolean),
+                                       "not")
+
+operator_equal_attribute = Primitive("equal_attribute",
+                                     arrow(fuzzy_set, boolean, boolean),
+                                     "not"
+                                     )
+
+def condition_assign(x, y):
+    """evaluate the expression x, y and return the end as an assignment operation"""
+    return {**x, "end": [{"x": x["set"],"y": y["set"], "v" : y["end"], "c": torch.tensor(infinity, device = device), "to": x["from"]}]}
+
+operator_assign_attribute = Primitive("assign",arrow(boolean, boolean, boolean),
+                                      lambda x: lambda y: condition_assign(x, y))
+
+def condition_if(x, y):
+    """x as the boolean expression to evaluate, y as the code blocks"""
+    outputs = []
+    for code in y["end"]:
+        code_condition = code["c"] if isinstance(code["c"], torch.Tensor) else torch.tensor(code["c"])
+        assign_operation = {
+            "x": code["x"],
+            "y": code["y"],
+            "v": code["v"],
+            "c": torch.min(code_condition, torch.max(x["end"])),
+            "to": code["to"],
+        }
+        outputs.append(assign_operation)
+    return {**x, **y, "end":outputs}
+
+operator_if_condition = Primitive("if", arrow(boolean, boolean, boolean),
+                                  lambda x: lambda y: condition_if(x, y))
+
+operator_pi = Primitive("pi", arrow(boolean), {"end":torch.tensor(3.14), "set":torch.tensor(1.0)})
+
+operator_true = Primitive("true", arrow(boolean), {"end":torch.tensor(14.), "set":torch.tensor(1.0)})
+
+operator_true = Primitive("false", arrow(boolean), {"end":-1. * torch.tensor(14.), "set":torch.tensor(1.0)})
