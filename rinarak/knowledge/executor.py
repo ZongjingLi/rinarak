@@ -132,7 +132,13 @@ class CentralExecutor(nn.Module):
                 self.predicates[arity] = []
             
             #predicate_imp = PredicateFilter(predicate_name,arity)
-            self.predicates[arity].append(Primitive(predicate_name,arrow(boolean, boolean),predicate_name))
+            self.predicates[arity].append(Primitive(predicate_name,arrow(boolean, boolean),
+            lambda x: {**x,
+                   "from": predicate_name, 
+                   "set":x["end"], 
+                   "end": x[predicate_name] if predicate_name in x else x["state"]}
+                )
+            )
         # [Derived]
         self.derived = domain.derived
         for name in self.derived:
