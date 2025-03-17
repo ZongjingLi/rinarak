@@ -2,7 +2,7 @@
 # @Author: Meleko
 # @Date:   2023-11-10 00:16:27
 # @Last Modified by:   zongjingli
-# @Last Modified time: 2025-03-16 21:17:31
+# @Last Modified time: 2025-03-16 21:19:56
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -98,7 +98,7 @@ class STNkd(nn.Module):
 class PointNetfeat(nn.Module):
     def __init__(self, global_feat=True, feature_transform=False, channel=3):
         super(PointNetfeat, self).__init__()
-        self.stn = STN3d(channel=channel)
+        self.stn = STN3d(channel=3)
         self.conv1 = torch.nn.Conv1d(channel, 64, 1)
         self.conv2 = torch.nn.Conv1d(64, 128, 1)
         self.conv3 = torch.nn.Conv1d(128, 1024, 1)
