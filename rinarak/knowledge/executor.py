@@ -14,8 +14,8 @@ from .symbolic import Expression, FunctionApplicationExpression, ConstantExpress
 
 
 from rinarak.logger import get_logger
-from rinarak.dsl.types
-from rinarak.dsl.values import Value, ProbValue
+from rinarak.dsl.dsl_types import FuncTypes
+from rinarak.dsl.dsl_values import Value, ProbValue
 
 logger = get_logger(__file__)
 

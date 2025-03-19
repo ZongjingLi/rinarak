@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from termcolor import colored
 
 from rinarak.utils import stprint_str
+from .dsl_types import ListType
 
 class ProbValue(object):
     def __init__(self, vtype, value, prob = 1.0):
