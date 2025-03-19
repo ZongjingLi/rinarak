@@ -1,127 +1,135 @@
 
+# -*- coding: utf-8 -*-
+# @Author: zongjingli
+# @Date:   2025-02-06 06:22:49
+# @Last Modified by:   zongjingli
+# @Last Modified time: 2025-02-19 20:23:27
+
+import open3d as o3d
 from rinarak.domain import load_domain_string, Domain
+from rinarak.knowledge.executor import CentralExecutor
 
-from rinarak.dsl.logic_primitives import *
-
-demo_domain_string = f"""
-(domain scourge_demo)
+blockworld_domain_str = """
+(domain Blockworld)
 (:type
-    object - vector[float,100]
+    state - vector[float,3] ;; encoding of position and is holding
     position - vector[float,2]
-    color - vector[float, 64]
-    category
+    scene - list[state]
 )
 (:predicate
-    color ?x-object -> vector[float,64]
-    is-red ?x-object -> boolean
-    is-blue ?x-object -> boolean
-    is-ship ?x-object -> boolean
-    is-house ?x-object -> boolean
-    left ?x-object ?y-object -> boolean
+    block_position ?x-state -> position
+    on ?x-state ?y-state -> boolean
+    clear-above ?x-state -> boolean
+    holding ?x-state -> boolean
+    hand_free -> boolean
 )
-(:derived
-    is-green ?x-color expr: (??f ?x)
-)
-(:constraint
-    (color: is-red is-blue)
-    (category: is-ship is-house)
-)
+
 (:action
     (
-        name:pick-up
-        parameters:?x-object ?y
-        precondition: (is-red (color ?x))
-        effect: (
-            if (is-blue ?y)
-                (and
-                (assign (is-blue ?x) 1.0 )
-                (assign (is-red ?y) 0.0)
+        name: pick
+        parameters: ?o1
+        precondition: (and (clear ?o1) (hand-free) )
+        effect:
+        (and-do
+            (and-do
+                (assign (holding ?o1) true)
+                (assign (clear ?o1) false)
+            )
+            (assign (hand-free) false)
+        )
+    )
+    (
+        name: place
+        parameters: ?o1 ?o2
+        precondition:
+            (and (holding ?o1) (clear ?o2))
+        effect :
+            (and-do
+            (and-do
+                        (assign (hand-free) true)
+                (and-do
+                        (assign (holding ?o1) false)
+                    (and-do
+                        (assign (clear ?o2) false)
+                        (assign (clear ?o1) true)
+                    )
                 )
+                
+            )
+                (assign (on ?x ?y) true)
             )
     )
 )
 """
+import torch
+import torch.nn as nn
 
-icc_parser = Domain("rinarak/base.grammar")
-domain = load_domain_string(demo_domain_string, icc_parser)
-domain.print_summary()
+class BlockworldExecutor(CentralExecutor):
 
-from rinarak.knowledge.executor import CentralExecutor
-from rinarak.dsl.logic_primitives import *
-executor = CentralExecutor(domain)
-executor.redefine_predicate("is-red", 
-                            lambda x: {**x, "end":torch.min(x["end"], torch.tensor([-4.0,-2.0]))}
-                            )
+    def __init__(self, domain, concept_dim):
+        super().__init__(domain, concept_dim)
+        self.neural_part = nn.Linear(2, 2)
+
+    def block_position(self, i):
+        return self.neural_part(self.grounding["block_position"][i])
+    
+    def holding(self):
+        return self.grounding
+    
+    def hand_free(self):
+        return self.grounding["hand_free"]
+    
+    def on(self, i,j):
+        return self.grounding["block_position"][i] - self.grounding["block_position"][j]
+
+blockworld_domain = load_domain_string(blockworld_domain_str)
+#blockworld_domain.print_summary()
+
+blockworld_executor = BlockworldExecutor(blockworld_domain, concept_dim = 128)
 
 
-outputs = executor.evaluate("( (is-red $0) )", {0:
-                                  {"end": torch.tensor([-1.,1.]),"features": torch.randn([2,100]), "executor": executor}
-                                  })
+if __name__ == "__main__":
+    import torch
 
-outputs = executor.evaluate("( relate $0 $0 left )", {0:
-                                  {"end": torch.tensor([-1.,1.]),"features": torch.randn([2,100]), "relations": torch.randn([2,2,100]), "executor": executor}
-                                  })
+    positions = torch.randn([4,2])
+    positions.requires_grad = True
+    context = {"block_position" : positions}
+    context["hand_free"] = True
 
-print(outputs["end"])
+    res = blockworld_executor.evaluate("hand_free()", context)
+    print(res)
 
-for derived in domain.derived:print(derived, domain.derived[derived])
+    res = blockworld_executor.evaluate("block_position(2)", context)
+    print(res)
 
-def fit_scenes(dataset, model, epochs = 1, batch_size = 2, lr = 2e-4, verbose = True):
-    import sys
-    loader = torch.utils.data.DataLoader(dataset, batch_size = batch_size)
-    # use Adam optimizer for the optimization of embeddings
-    optimizer = torch.optim.Adam(model.parameters(), lr = lr)
-    for epoch in range(epochs):
-        epoch_loss = 0.0
-        for sample in loader:
-            """Load the scene features and other groundings"""
-            features = sample["scene"]["features"]
-            percept_end, features = model.perception(features)
+    res = blockworld_executor.evaluate("on(1,2)", context)
+    print(res)
 
-            if sample["scene"]["end"] is not None:
-                end = sample["scene"]["end"]
-                end = logit(end)
-                end = torch.min(end, percept_end)
-            else:
-                end = percept_end
+    optimizer = torch.optim.Adam(blockworld_executor.parameters(), lr = 1e-2)
+    for epoch in range(500):
+        res = blockworld_executor.evaluate("block_position(2)", context).value
 
-            """Loss calculation for the grounding modules"""
-            loss = 0.0
-            programs = sample["programs"]
-            answers = sample["answers"]
+        loss = torch.nn.functional.mse_loss(res, torch.tensor([1.0, 0.5]))
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
 
-            # perform grounding on each set of scenes
-            batch_num = features.shape[0]
-            acc = 0; total = 0
-            for b in range(batch_num):
-                for i,program_batch in enumerate(programs):
-                    program = program_batch[b]
-                    answer = answers[i][b]
-                    """Context for the central executor on the scene"""
-                    context = {
-                        "end":end[b],
-                        "features":features[b],
-                        "executor":model.central_executor
-                    }
-                    q = Program.parse(program)
-                    output = q.evaluate({0:context})
-                    
-                    if answer in ["yes","no"]:
-                        if answer == "yes":loss -= torch.log(output["end"].sigmoid())
-                        else:loss -= torch.log(1 - output["end"].sigmoid())
-                        if output["end"].sigmoid() > 0.5 and answer == "yes": acc += 1
-                        if output["end"].sigmoid() < 0.5 and answer == "no": acc += 1
-                    else:
-                        loss += torch.abs(output["end"] - int(answer))
-                        if torch.abs(output["end"] - int(answer)) < 0.5: acc += 1
-                    total += 1
-                loss /= len(programs) # program wise normalization
-            loss /= batch_num # batch wise normalization
-            """Clear gradients and perform optimization"""
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            epoch_loss += loss.detach().numpy()
-            if verbose:
-                sys.stdout.write(f"\repoch:{epoch+1} loss:{str(loss)[7:12]} acc:{acc/total}[{acc}/{total}]")
-    if verbose:sys.stdout.write("\n")
+
+    from rinarak.utils import stprint
+    #stprint(torch.randn([4,2]))
+    #stprint(context, "context")
+
+
+data1 = [1, 2, 3, 4, 5]
+data2 = ['a', 'b', 'c', 'd']
+from rinarak.utils.data import ListDataset, FilterableDatasetView, demonstrate_dataset_filtering
+from torch.utils.data import DataLoader
+
+ds1 = ListDataset(data1)
+ds2 = ListDataset(data2)
+
+ds = ds1 + ds2
+
+loader = DataLoader(ds)
+for sample in loader:
+    print(sample)

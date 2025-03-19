@@ -1,430 +1,197 @@
-import itertools
-
+# -*- coding: utf-8 -*-
+# @Author: zongjingli
+# @Date:   2025-03-16 22:28:20
+# @Last Modified by:   zongjingli
+# @Last Modified time: 2025-03-16 22:41:56
 import torch
-from torch import nn
-from torch.nn import functional as F
+import torch.nn as nn
+import contextlib
+from dataclasses import dataclass, field
+from typing import Dict, List, Any, Optional, Callable
+import functools
 
-from .embedding  import build_box_registry
-from .entailment import build_entailment
-from .predicates import PredicateFilter
-from rinarak.utils import freeze
-from rinarak.utils.misc import *
-from rinarak.utils.tensor import logit, expat
-from rinarak.types import baseType, arrow
-from rinarak.program import Primitive, Program
-from rinarak.dsl.logic_types import boolean
-from rinarak.algs.search.heuristic_search import run_heuristic_search
-from dataclasses import dataclass
-import copy
-import re
-from itertools import combinations
-
-import random
-
-def split_components(input_string):
-    pattern = r'\([^)]*\)'
-    return [match.strip('()') for match in re.findall(pattern, input_string)]
-
-class UnknownArgument(Exception):
-    def __init__(self):super()
-
-class UnknownConceptError(Exception):
-    def __init__(self):super()
-
-@dataclass
-class QuantizeTensorState(object):
-      state: dict
-
-def find_first_token(str, tok):
-    start_index = 0
-    while True:
-        # Find the index of the next occurrence of the token
-        next_index = str.find(tok, start_index)
-        
-        # If the token is not found, return -1
-        if next_index == -1:
-            return -1
-        
-        # Check if the token is followed by a "-"
-        if next_index + len(tok) < len(str) and str[next_index + len(tok)] == "-":
-            # If the token is followed by a "-", update the start index and continue searching
-            start_index = next_index + 1
-            continue
-        
-        # Otherwise, return the starting index of the token
-        return next_index
-    
-def get_params(ps, token):
-
-    start_loc = find_first_token(ps, token)
-
-    ps = ps[start_loc:]
-    count = 0
-    outputs = ""
-    idx = len(token) + 1
-    while count >= 0:
-         if ps[idx] == "(": count += 1
-         if ps[idx] == ")": count -= 1
-         outputs += ps[idx]
-         idx += 1
-    outputs = outputs[:-1]
-    end_loc = idx + start_loc - 1
-    components = ["({})".format(comp) for comp in split_components(outputs)]
-    if len(components) == 0: components = [outputs]
-    return components, start_loc, end_loc
-
-def type_dim(rtype):
-    if rtype in ["float", "boolean"]:
-        return [1], rtype
-    if "vector" in rtype:
-        content = rtype[7:-1]
-        coma = re.search(r",",content)
-
-        vtype = content[:coma.span()[0]]
-        vsize = [int(dim[1:-1]) for dim in content[coma.span()[1]:][1:-1].split(",")]
-        return vsize, vtype
-    else:
-        print(f"unknown state type :{rtype}")
-        return [1], rtype
+from .symbolic import Expression, FunctionApplicationExpression, ConstantExpression
 
 
-class CentralExecutor(nn.Module):
-    NETWORK_REGISTRY = {}
+from rinarak.logger import get_logger
+from rinarak.dsl.types
+from rinarak.dsl.values import Value, ProbValue
 
-    def __init__(self, domain, concept_type = "cone", concept_dim = 100):
+logger = get_logger(__file__)
+
+class FunctionExecutor(nn.Module):
+    def __init__(self, domain : 'Domain', concept_dim = 128):
         super().__init__()
-        self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
-        self.domain = domain
-        BIG_NUMBER = 100
-        entries = 128
+        self._domain = domain
+        self.concept_dim = concept_dim
 
-        self.entailment = build_entailment(concept_type, concept_dim)
-        self.concept_registry = build_box_registry(concept_type, concept_dim, entries)
+        self.parser = Expression # Expression class allows prasing, but other parsers should be allowed
+        self._function_registry = dict() # allowed neural registry
 
-        # [Types]
-        self.types = domain.types
-        assert "state" in domain.types,domain.types
-        for type_name in domain.types:
-            baseType(type_name)
-        self.state_dim, self.state_type = type_dim(domain.types["state"])
+        for function_name, function in domain.functions.items():
 
-        # [Predicate Type Constraints]
-        self.type_constraints = domain.type_constraints
+            if hasattr(self, function_name):
+                self.register_function(function_name, self.unwrap_values(getattr(self, function_name)))
+                logger.info('Function {} automatically registered.'.format(function_name))
 
-
-        # [Predicates]
-        self.predicates = {}
-        self.predicate_output_types = {}
-        self.predicate_params_types = {}
-        for predicate in domain.predicates:
-            predicate_bind = domain.predicates[predicate]
-            predicate_name = predicate_bind["name"]
-            params = predicate_bind["parameters"]
-            rtype = predicate_bind["type"]
-            
-            """add the type annotation to all the predicates in the predicate section"""
-            self.predicate_output_types[predicate_name] = rtype
-            self.predicate_params_types[predicate_name] = [param.split("-")[1] if "-" in param else "any" for param in params]
-
-            # check the arity of the predicate
-            arity = len(params)
-            if arity not in self.predicates:
-                self.predicates[arity] = []
-            
-            #predicate_imp = PredicateFilter(predicate_name,arity)
-            self.predicates[arity].append(Primitive(predicate_name,arrow(boolean, boolean),
-            lambda x: {**x,
-                   "from": predicate_name, 
-                   "set":x["end"], 
-                   "end": x[predicate_name] if predicate_name in x else x["state"]}
-                )
-            )
-        # [Derived]
-        self.derived = domain.derived
-        for name in self.derived:
-            params = self.derived[name]["parameters"]
-            self.predicate_params_types[name] = [param.split("-")[1] if "-" in param else "any" for param in params]
-
-            # check the arity of the predicate
-            arity = len(params)
-            if arity not in self.predicates:
-                self.predicates[arity] = []
-            
-            #predicate_imp = PredicateFilter(predicate_name,arity)
-            self.predicates[arity].append(Primitive(name,arrow(boolean, boolean), name))
-
-        # [Actions]
-        self.actions = domain.actions
-
-        # [Word Vocab]
-        #self.relation_encoder = nn.Linear(config.object_dim * 2, config.object_dim)
-
-        self.concept_vocab = []
-        for arity in self.predicates:
-            for predicate in self.predicates[arity]:
-                self.concept_vocab.append(predicate.name)
-
-        """Neuro Component Implementation Registry"""
-        self.implement_registry = {}
-        for implement_key in domain.implementations:
-            
-            effect = domain.implementations[implement_key]
-            self.implement_registry[implement_key] = Primitive(implement_key,arrow(boolean,boolean),effect)
-
-        # copy the implementations from the registry
-
-        # args during the execution
-        self.kwargs = None 
-
-        self.effective_level = BIG_NUMBER
-
-        self.quantized = False
-        """Embedding of predicates and actions, implemented using a simple embedding module"""
-        self.predicate_embeddings = nn.Embedding(entries,2)
+        self._grounding = None
     
-    def embeddings(self, arity):
-        """return a tuple of predicate names and corresponding vectors"""
-        names = [str(name) for name in self.predicates[arity]]
-        embs = [self.get_predicate_embedding(name) for name in names]
-        return names, torch.cat(embs, dim = 0)
+    @property
+    def domain(self) -> 'Domain' : return self._domain
     
-    def get_predicate_embedding(self, name):
-        device = "cuda:0" if torch.cuda.is_available() else "cpu"
-        predicate_index = self.concept_vocab.index(name)
-        idx = torch.tensor(predicate_index).unsqueeze(0).to(device)
-        return self.predicate_embeddings(idx)
+    def register_function(self, name: str, func: Callable):
+        """Register an implementation for a function.
 
-    def check_implementation(self):
-        warning = False
-        for key in self.implement_registry:
-            func_call = self.implement_registry[key]
-            if func_call is None:warning = True
-        if warning:
-            print("Warning: exists predicates not implemented.")
-            return False
-    
-    def redefine_predicate(self, name, func):
-        for predicate in Primitive.GLOBALS:
-            if predicate== name:
-                Primitive.GLOBALS[name].value = func
-        return True
- 
-    def evaluate(self, program, context):
-        """program as a string to evaluate under the context
         Args:
-            program: a string representing the expression for evaluation
-            context: the execution context with predicates and executor
-        Return:
-            precond: a probability of this action is successfully activated.
-            parameters changed
+            name: the name of the function.
+            func: the implementation of the function.
         """
-        BIG_NUM = 1e6
-        flat_string = program
-        flag = True in [derive in flat_string for derive in self.derived]
-        itr = 0
-        """Replace all the derived expression in the program with primitives, that means recusion are not allowed"""
-        import time
-        start_time = time.time()
-        last_string = flat_string
-        while flag and itr < BIG_NUM:
-            itr += 1
-            for derive_name in self.derived:
-                if not f"{derive_name} " in flat_string: continue
-                formal_params = self.derived[derive_name]["parameters"]
-                actual_params, start, end = get_params(flat_string, derive_name)
+        self._function_registry[name] = func
 
-                """replace derived expressions with the primtives"""
-                prefix = flat_string[:start];suffix = flat_string[end:]
-                flat_string = "{}{}{}".format(prefix,self.derived[derive_name]["expr"],suffix)
+    def get_function_implementation(self, name: str) -> Callable:
+        """Get the implementation of a function. When the executor does not have an implementation for the function,
+        the implementation of the function in the domain will be returned. If that is also None, a `KeyError` will be
+        raised.
 
-                for i,p in enumerate(formal_params):flat_string = flat_string.replace(p.split("-")[0], actual_params[i])
-
-            
-            """until there are no more derived expression in the program"""
-            flag = last_string != flat_string
-            last_string = flat_string
-        end_time = time.time()
-        #print("time consumed by translate: {:.5f}".format(end_time - start_time))
-        program = Program.parse(flat_string)
-
-        outputs = program.evaluate(context)
-        return outputs
-
-    def symbolic_planner(self, start_state, goal_condition):
-        pass
-    
-    def visualize(self, x, fname): return x
-    
-    def apply_action(self, action_name, params, context):
-        """Apply the action with parameters on the given context
         Args:
-            action_name: the name of action to apply
-            params: a set of integers represent the index of objects in the scene
-            context: given all the observable in a diction
+            name: the name of the function.
+
+        Returns:
+            the implementation of the function.
         """
 
-        context = copy.copy(context)
-        assert action_name in self.actions
-        action = self.actions[action_name] # assert the action must be in the action registry
+        if name in self._function_registry:
+            return self._function_registry[name]
+        raise KeyError(f'No implementation for function {name}.')
 
-        """Replace the formal parameters in the predcondition into lambda form"""
-        formal_params = [p.split("-")[0] for p in action.parameters]
-        
-        num_objects = context["end"].size(0)
+    def init_domain_functions(self, domain):
+        return 
 
-        context_params = {}
-        for i,idx in enumerate(params):
-            obj_mask = torch.zeros([num_objects])
-            obj_mask[idx] = 1.0
-            obj_mask = logit(obj_mask)
-            context_param = {**context}
-            context_param["end"] = context["end"]
-            for key in context_param:
-                if isinstance(context_param[key], torch.Tensor):
-                    context_param[key] = context_param[key][idx]
-            context_param["idx"] = idx
-            context_params[i] = context_param#{**context, "end":idx}
-
-        # handle the replacements of precondition and effects
-        precond_expr = str(action.precondition)
-        for i,formal_param in enumerate(formal_params):precond_expr = precond_expr.replace(formal_param, f"${i}")
-        effect_expr = str(action.effect)
-        for i,formal_param in enumerate(formal_params): effect_expr = effect_expr.replace(formal_param, f"${i}")
-
-        """Evaluate the probabilitstic precondition (not quantized)"""
-        precond = self.evaluate(precond_expr,context_params)["end"].reshape([-1])
-        #print(precond_expr)
-        #print(effect_expr)
-
-        assert precond.shape == torch.Size([1]),print(precond.shape)
-        if self.quantized: precond = precond > 0.0 
-        else: precond = precond.sigmoid()
-
-        """Evaluate the expressions"""
-        effect_output = self.evaluate(effect_expr, context_params)
-        if not isinstance(effect_output["end"], list):
-            return -1 
-        
-        output_context = {**context}
-        for assign in effect_output["end"]:
-            #print(assign)
-            condition = torch.min(assign["c"].sigmoid(), precond)
-  
-            apply_predicate = assign["to"] # name of predicate
-            apply_index = assign["x"] # remind that x is the index
-            source_value = assign["v"] # value to assign to x
+    @property
+    def grounding(self): return self._grounding # the grounding stored in the current execution
 
 
-            assign_mask = torch.zeros_like(output_context[apply_predicate]).to(self.device)
+    @contextlib.contextmanager
+    def with_grounding(self, grounding : Any):
+        """create the evaluation context"""
+        old_grounding = self._grounding
+        self._grounding = grounding
+        try:
+            yield
+        finally:
+            self._grounding = old_grounding
 
-            if not isinstance(apply_index,list): apply_index = [apply_index]
-            apply_index = list(torch.tensor(apply_index))
-            
-        
-            assign_mask[apply_index] = 1.0
+    def parse_expression(self, expr):
+        """Parse the expression from a program string
+        Args:
+            expr: the string of the program expression
+        Returns:
+            the parsed expression
+        """
+        if self.parser is None: raise Exception("Parser is not availale")
+        return self.parser.parse_program_string(expr)
+    
+    def evaluate(self, expression, grounding):
+        if not isinstance(expression, Expression):
+            expression = self.parse_expression(expression)
 
-            output_context[apply_predicate] = \
-            output_context[apply_predicate] * (1 - condition * assign_mask) + (condition * assign_mask) * source_value
-        return precond, output_context
+        grounding = grounding if self._grounding is not None else grounding
 
-    def get_implementation(self, func_name):
-        func = self.implement_registry[func_name]
-        return func
+        with self.with_grounding(grounding):
+            return self._evaluate(expression)
 
     
-    def get_type(self, concept):
-        concept = str(concept)
-        for key in self.type_constraints:
-            if concept in self.type_constraints[key]: return key
-        return False
-    
-    def build_relations(self, scene):
-        end = scene["end"]
-        features = scene["features"]
-        N, D = features.shape
-        cat_features = torch.cat([expat(features,0,N),expat(features,1,N)], dim = -1)
-        relations = self.relation_encoder(cat_features)
-        return relations
-    
-    def all_embeddings(self):
-        return self.concept_vocab, [self.get_concept_embedding(emb) for emb in self.concept_vocab]
+    def _evaluate(self, expr : Expression):
+        """Internal implementation of the executor. This method will be called by the public method :meth:`execute`.
+        This function basically implements a depth-first search on the expression tree.
 
-    def get_concept_embedding(self,concept):
-        concept = str(concept)
-        device = "cuda:0" if torch.cuda.is_available() else "cpu"
-        concept_index = self.concept_vocab.index(concept)
-        idx = torch.tensor(concept_index).unsqueeze(0).to(device)
+        Args:
+            expr: the expression to execute.
 
-        return self.concept_registry(idx)
-    
-    def entail(self, feature, key): 
-        if len(feature.shape) == 1: feature = feature.unsqueeze(0)
-        return torch.einsum("nd,kd->n", feature, self.get_concept_embedding(key))
+        Returns:
+            The result of the execution.
+        """
 
-    
-    def search_discrete_state(self, state, goal, max_expansion = 10000, max_depth = 10000):
-        init_state = QuantizeTensorState(state = state)
+        if isinstance(expr, FunctionApplicationExpression):
+            #print(self._function_registry)
+            func = self._function_registry[expr.func.name]
+            args = [self._evaluate(arg) for arg in expr.args]
+            return func(*args)
+        elif isinstance(expr, ConstantExpression):
+            assert isinstance(expr.const, Value)
+            return expr.const
+        else:
+            raise NotImplementedError(f'Unknown expression type: {type(expr)}')
 
-        class ActionIterator:
-            def __init__(self, actions, state, executor):
-                self.actions = actions
-                self.action_names = list(actions.keys())
-                self.state = state
-                self.executor = executor
+    def unwrap_values(self, func_or_ftype: Callable) -> Callable:
+        """A function decorator that automatically unwraps the values of the arguments of the function.
+        Basically, this decorator will unwrap the values of the arguments of the function, and then wrap the result with the
+        :class:`concepts.dsl.value.Value` class.
 
-                self.apply_sequence = []
+        There are two ways to use this decorator. The first way is to use it as a function decorator:
+        In this case, the wrapped function should have the same name as the DSL function it implements.
 
-                num_actions = self.state.state["end"].size(0)
-                obj_indices = list(range(num_actions))
-                for action_name in self.action_names:
-                    params = list(range(len(self.actions[action_name].parameters)))
-                    
-                    for param_idx in combinations(obj_indices, len(params)):
-                        #if action_name == "spreader" and 0 in param_idx and 3 in param_idx: print("GOOD:",action_name, list(param_idx))
-                        #print(action_name, list(param_idx))
-                        self.apply_sequence.append([
-                            action_name, list(param_idx)
-                        ])
-                self.counter = 0
+            >>> domain = FunctionDomain()
+            >>> # Assume domain has a function named "add" with two arguments.
+            >>> executor = FunctionDomainExecutor(domain)
+            >>> @executor.unwrap_values
+            >>> def add(a, b):
+            >>>     return a + b
+            >>> executor.register_function('add', add)
 
-            def __iter__(self):
-                return self
-            
-            def __next__(self):
-                
-                if self.counter >= len(self.apply_sequence):raise StopIteration
-                context = copy.copy(self.state.state)
-                
-                action_chosen, params = self.apply_sequence[self.counter]
-                #if action_chosen == "spreader" and 0 in params and 3 in params:print(action_chosen+str(params),context["red"] > 0)
+        The second way is to use it as function that generates a function decorator:
 
-                precond, state = self.executor.apply_action(action_chosen, params, context = context)
-                
-                #if action_chosen == "spreader" and 0 in params and 3 in params:print(state["red"] > 0)
-                
-                self.counter += 1
-                state["executor"] = None
+            >>> domain = FunctionDomain()
+            >>> # Assume domain has a function named "add" with two arguments.
+            >>> executor = FunctionDomainExecutor(domain)
+            >>> @executor.unwrap_values(domain.functions['add'].ftype)
+            >>> def add(a, b):
+            >>>     return a + b
+            >>> executor.register_function('add', executor.unwrap_values(add))
 
-                return (action_chosen+str(params), QuantizeTensorState(state=state), -1 * torch.log(precond))
+        Args:
+            func_or_ftype: the function to wrap, or the function type of the function to wrap.
+
+        Returns:
+            The decorated function or a function decorator.
+        """
+        FunctionType = CentralExecutor # TODO: remove this
+
+        if isinstance(func_or_ftype, FunctionType):
+            ftype = func_or_ftype
+        else:
+            if func_or_ftype.__name__ not in self.domain.functions:
+                raise NameError(f'Function {func_or_ftype.__name__} is not registered in the domain.')
+
+            #print(self.domain.functions[func_or_ftype.__name__])
+            #ftype = self.domain.functions[func_or_ftype.__name__].ftype
+            func_dict = self.domain.functions[func_or_ftype.__name__]
+            #print(func_dict)
+            ftype = FuncType(func_dict["parameters"], func_dict["type"])
+
+        def wrapper(func):
+            @functools.wraps(func)
+            def wrapped(*args, **kwargs):
+                args = [arg.value if isinstance(arg, Value) else arg for arg in args]
+                kwargs = {k: v.value if isinstance(v, Value) else v for k, v in kwargs.items()}
+                rv = func(*args, **kwargs)
+
+                if isinstance(ftype.return_type, tuple):
+                    return tuple(
+                        Value(ftype.return_type[i], rv[i]) if not isinstance(rv[i], Value) else rv[i] for i in range(len(rv))
+                    )
+                elif isinstance(rv, Value):
+                    return rv
+                else:
+                    return Value(ftype.return_type, rv)
+            return wrapped
+
+        if isinstance(func_or_ftype, FunctionType):
+            return wrapper
+        else:
+            return wrapper(func_or_ftype)
         
-        def goal_check(searchState):
-            return self.evaluate(goal,{0 :searchState.state})["end"] > 0.0
 
-
-        def get_priority(x, y): return 1.0 + random.random()
-
-        def state_iterator(state: QuantizeTensorState):
-            actions = self.actions
-            return ActionIterator(actions, state, self)
-        
-        states, actions, costs, nr_expansions = run_heuristic_search(
-            init_state,
-            goal_check,
-            get_priority,
-            state_iterator,
-            False,
-            max_expansion,
-            max_depth
-            )
-        
-        return states, actions, costs, nr_expansions
+class CentralExecutor(FunctionExecutor):
+    def __init__(self, domain, concept_dim = 128):
+        super().__init__(domain, concept_dim = concept_dim)

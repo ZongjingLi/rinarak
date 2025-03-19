@@ -1,0 +1,9 @@
+from dataclasses import dataclass
+
+@dataclass
+class FuncType(object):
+    def __init__(self, parameters, return_type):
+        self.parameters = parameters
+        self.return_type = return_type
+
+

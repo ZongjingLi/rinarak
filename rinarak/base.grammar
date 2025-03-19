@@ -23,7 +23,7 @@ parent_type_name: object_type_name | vector_type_name
 
 // predicate definition group
 predicate_definitions: "(" ":" "predicate" predicate_definition+ ")"
-predicate_definition: predicate_name parameters | predicate_name parameters "->" object_type_name
+predicate_definition: predicate_name parameters | predicate_name parameters "->" object_type_name | predicate_name "->" object_type_name
 predicate_name: VARNAME
 parameters: parameter+
 parameter: VARIABLE | typed_variable
@@ -79,12 +79,15 @@ typed_variable: VARIABLE "-" object_type_name
 // types and predicate transforms
 ARROW: "->"
 
-value_type_name: type_name | vector_type_name
+value_type_name: type_name | vector_type_name | list_type_name
 vector_type_name: "vector" "[" vector_choice  vector_size+ "]"
 
 type_name: VARNAME
 vector_choice: VARNAME
 vector_size: "," NUMBER
+
+list_type_name : "list" "[" type_name "]"
+
 
 // predefined data_type
 

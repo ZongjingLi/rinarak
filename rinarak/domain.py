@@ -20,8 +20,9 @@ def carry_func_name(name,expr_nested):
     return output, slots
 
 class Domain:
-    #grammar_file = os.path.join(os.path.dirname(__file__), 'base.grammar')
-    def __init__(self, grammar_file):
+    
+    def __init__(self, grammar_file = None):
+        grammar_file = os.path.join(os.path.dirname(__file__), 'base.grammar') if grammar_file is None else grammar_file
         with open(grammar_file) as file:
             self.lark = Lark(file)
         self.grammar_file = grammar_file
@@ -29,7 +30,7 @@ class Domain:
 
         self.types = {} # types as a diction, map from the type name to the actual type object
 
-        self.predicates = {} # all the function call to the predicates stored, map from the name to actual type
+        self.functions = {} # all the function call to the predicates stored, map from the name to actual type
 
         self.derived = {}
 
@@ -55,7 +56,7 @@ class Domain:
         self.types[type_name] = parent_name
     
     def define_predicate(self, predicate_name, parameters, output_type):
-        self.predicates[predicate_name] = {"name":predicate_name,"parameters":parameters, "type":output_type}
+        self.functions[predicate_name] = {"name":predicate_name,"parameters":parameters, "type":output_type}
     
     def define_action(self, action_name, parameters, precondition, effect):
         """ define symbolic action using the action name, parameters, preconditon and effect, the actual implementation is empty.
@@ -91,10 +92,10 @@ class Domain:
         for key in self.types:
             print(f"  {key} - {self.types[key]}")
         print("predicates:")
-        for key in self.predicates:
-            predicate_name = self.predicates[key]["name"]
-            parameters = self.predicates[key]["parameters"]
-            output_type = self.predicates[key]["type"]
+        for key in self.functions:
+            predicate_name = self.functions[key]["name"]
+            parameters = self.functions[key]["parameters"]
+            output_type = self.functions[key]["type"]
             print(f"  {predicate_name}:{parameters} -> {output_type}");
         print("actions:")
         for key in self.actions:
@@ -106,9 +107,9 @@ class Domain:
             print(f" name:{name}\n  params:{params}\n  precond:{precond}\n  effect:{effect}")
         print(self.implementations)
 
-#_icc_parser = Domain()
+_icc_parser = Domain()
 
-def load_domain_string(domain_string, default_parser = None):
+def load_domain_string(domain_string, default_parser = _icc_parser):
     tree = default_parser.lark.parse(domain_string)
     icc_transformer = ICCTransformer(default_parser.grammar_file)
     icc_transformer.transform(tree)

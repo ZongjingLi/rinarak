@@ -10,3 +10,5 @@ from .math import *
 from .planner import *
 from .utils import *
 from .envs import *
+
+import open3d as o3d
