@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 
 from rinarak.dklearn.nn import FCBlock
 from rinarak.utils.tensor import logit
+from rinarak.dsl.dsl_values import Value
 
 
 from termcolor import colored

@@ -160,7 +160,7 @@ def stprint(data=None, var_name=None, return_str=False):
                 # Print fields
                 for key, value in fields.items():
                     print(f"{indent_str}  {RUNIC}{key}{PALE_BLUE}: ", end="")
-                    if isinstance(value, (dict, list, tuple)) or \
+                    if isinstance(value, (dict, list,)) or \
                        dataclasses.is_dataclass(value) or \
                        isinstance(value, np.ndarray) and len(value.shape) > 1 or \
                        is_torch_tensor and len(value.shape) > 1:
@@ -181,7 +181,7 @@ def stprint(data=None, var_name=None, return_str=False):
             
             for key, value in obj.items():
                 print(f"{indent_str}  {ICY_BLUE}{key}{PALE_BLUE}: ", end="")
-                if isinstance(value, (dict, list, tuple)) or \
+                if isinstance(value, (dict, list,)) or \
                    dataclasses.is_dataclass(value) or \
                    isinstance(value, np.ndarray) and len(value.shape) > 1 or \
                    is_torch_tensor and len(value.shape) > 1:

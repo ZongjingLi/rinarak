@@ -1,5 +1,5 @@
 """value type modeling the probablistic measures on the program context"""
-from typing import Optional
+from typing import Optional, Sequence, Any
 from dataclasses import dataclass
 from termcolor import colored
 
