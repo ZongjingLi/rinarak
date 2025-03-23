@@ -27,7 +27,7 @@ if __name__ == "__main__":
     # Print contact and support info
     #sim.print_contact_info()
     #sim.print_support_info()
-    
+
     # Visualize the graphs
     #sim.visualize_graph(sim.contact_graph, "Contact Graph")
     #sim.visualize_graph(sim.support_graph, "Support Graph")

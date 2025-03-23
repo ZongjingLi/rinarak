@@ -209,3 +209,17 @@ class ImageDataset(FilterableDatasetUnwrapped):  # Change the parent class
             'category': category,
             'shape': self.images[index].shape if hasattr(self.images[index], 'shape') else None
         }
+
+from abc import abstractmethod
+
+
+class GroundBaseDataset(BaseDataset):
+    def __init__(self):
+        super().__init__()
+    
+    @abstractmethod
+    def __getitem__(self,idx):
+        return 
+
+class PlannerBaseDataset(BaseDataset):
+    pass

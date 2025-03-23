@@ -115,22 +115,3 @@ if __name__ == "__main__":
         optimizer.step()
 
 
-    from rinarak.utils import stprint
-    #stprint(torch.randn([4,2]))
-    #stprint(context, "context")
-
-
-
-data1 = [1, 2, 3, 4, 5]
-data2 = ['a', 'b', 'c', 'd']
-from rinarak.utils.data import ListDataset, FilterableDatasetView, demonstrate_dataset_filtering
-from torch.utils.data import DataLoader
-
-ds1 = ListDataset(data1)
-ds2 = ListDataset(data2)
-
-ds = ds1 + ds2
-
-loader = DataLoader(ds)
-for sample in loader:
-    print(sample)

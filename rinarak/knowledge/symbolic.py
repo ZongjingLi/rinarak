@@ -132,7 +132,6 @@ class FunctionApplicationExpression(ObjectOrValueExpression):
                 colored("[", "white") + args_str + colored("]", "white") + ")")
 
 
-
 class State:
     def __init__(self, data):
         """ construct a symbolic or hybrid state

@@ -11,7 +11,7 @@ from typing import Dict, List, Any, Optional, Callable
 import functools
 
 from .symbolic import Expression, FunctionApplicationExpression, ConstantExpression
-
+from abc import abstractmethod
 
 from rinarak.logger import get_logger
 from rinarak.dsl.dsl_types import FuncType
@@ -191,6 +191,11 @@ class FunctionExecutor(nn.Module):
         else:
             return wrapper(func_or_ftype)
         
+
+class TensorStateExecutor(FunctionExecutor):
+    def __init__(self, domain, concept_dim = 128):
+        super().__init__(domain, concept_dim = concept_dim)
+
 
 class CentralExecutor(FunctionExecutor):
     def __init__(self, domain, concept_dim = 128):
