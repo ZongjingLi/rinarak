@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 import random
 import itertools
+from typing import List, Any
 from rinarak.logger import get_logger
 
 logger = get_logger(__file__)
@@ -31,7 +32,7 @@ class IterableDatasetMixin(object):
             yield i, self[i]
 
 class ListDataset(BaseDataset, IterableDatasetMixin):
-    def __init__(self, data):
+    def __init__(self, data : List[Any]):
         """
         Args:
             data (list[Any]): the list of data.
@@ -41,6 +42,8 @@ class ListDataset(BaseDataset, IterableDatasetMixin):
     def __len__(self): return len(self.data)
 
     def __getitem__(self, idx): return self.data[idx]
+
+    def add(self, data): self.data.append(data)
 
 class FilterableDatasetUnwrapped(BaseDataset, IterableDatasetMixin):
     """

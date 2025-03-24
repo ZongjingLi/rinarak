@@ -321,3 +321,43 @@ class FuncType(TypeBase):
     def __init__(self, parameters, return_type):
         self.parameters = parameters
         self.return_type = return_type
+
+
+class ObjectType(TypeBase):
+    """The ObjectType corresponds to the type of "real-world" objects."""
+
+    def __init__(self, typename: str, parent_types: Optional[Sequence['ObjectType']] = None, alias: Optional[str] = None):
+        """Initialize the object type.
+
+        Args:
+            typename: The name of the object type.
+            alias: The alias of the object type.
+        """
+        super().__init__(typename, alias=alias)
+
+        self.parent_types = tuple(parent_types) if parent_types is not None else tuple()
+
+    @property
+    def is_object_type(self):
+        return True
+
+    parent_types: Tuple['ObjectType', ...]
+    """The parent types of the object type."""
+
+    def iter_parent_types(self) -> Iterable['ObjectType']:
+        """Iterate over all parent types.
+
+        Yields:
+            the parent types following the inheritance order.
+        """
+        for parent_type in self.parent_types:
+            yield parent_type
+            yield from parent_type.iter_parent_types()
+
+    def long_str(self) -> str:
+        if len(self.parent_types) == 0:
+            return f'OT[{self.typename}]'
+
+        return f'OT[{self.typename}, parent={", ".join(t.typename for t in self.parent_types)}]'
+    
+

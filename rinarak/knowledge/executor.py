@@ -200,3 +200,4 @@ class TensorStateExecutor(FunctionExecutor):
 class CentralExecutor(FunctionExecutor):
     def __init__(self, domain, concept_dim = 128):
         super().__init__(domain, concept_dim = concept_dim)
+

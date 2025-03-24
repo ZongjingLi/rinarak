@@ -6,7 +6,7 @@ from datetime import datetime
 from .base_env import BaseEnv
 from .contact import ContactModel
 
-class GripperSimulator(ContactModel):
+class GripperSimulator(ContactModel, BaseEnv):
     def __init__(self, gui=True, robot_position=[0.0, 0.0, 0.0], auto_register=True):
         """
         Initialize the gripper simulator with integrated contact modeling.

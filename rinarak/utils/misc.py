@@ -1,6 +1,7 @@
 
 EPS = 1e-6
 import numpy as np
+from typing import Optional
 
 numbers = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine']
 yes_or_no = ["yes", "no"]
@@ -394,3 +395,30 @@ if __name__ == "__main__":
     # Print the complex structure
     print("\nExample with nested dataclasses:")
     stprint(complex_data, "complex_data")
+
+
+def indent_text(text: str, level = 1, indent_format: Optional[str] = None, tabsize: Optional[int] = None, indent_first: bool = True) -> str:
+    """Indent the text by the given level.
+
+    Args:
+        text: the text to be indented.
+        level: the indent level.
+        indent_format: the indent format. If None, use the tabsize.
+        tabsize: the tab size. If None, use the default tab size (2).
+        indent_first: whether to indent the first line.
+
+    Returns:
+        The indented text.
+    """
+    text = str(text)
+    if indent_format is not None:
+        assert tabsize is None, 'Cannot provide both indent format and tabsize.'
+    if tabsize is not None:
+        assert indent_format is None, 'Cannot provide both indent format and tabsize.'
+        indent_format = ' ' * tabsize
+    if indent_format is None and tabsize is None:
+        indent_format = '  '
+    indent_format = indent_format * level
+    if indent_first:
+        return indent_format + text.replace('\n', '\n' + indent_format)
+    return text.replace('\n', '\n' + indent_format)
