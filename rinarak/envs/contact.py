@@ -484,7 +484,40 @@ class ContactModel:
                 supporters.append(u)
                 
         return supporters
-    
+
+    def unregister_object(self, name):
+        """
+        Unregister an object from the contact model.
+        
+        Args:
+            name: Name of the object to unregister
+            
+        Returns:
+            True if object was unregistered, False otherwise
+        """
+        if name not in self.object_registry:
+            print(f"No object with name '{name}' found in registry")
+            return False
+        
+        # Remove from registry
+        del self.object_registry[name]
+        
+        # Remove from attributes
+        if name in self.object_attributes:
+            del self.object_attributes[name]
+        
+        # Remove from object names list
+        if name in self.object_names:
+            self.object_names.remove(name)
+        
+        # Reset tensors and graphs since objects have changed
+        self.contact_tensor = None
+        self.support_tensor = None
+        self.contact_graph = None
+        self.support_graph = None
+        
+        return True
+
     def get_objects_above(self, object_name):
         """
         Get all objects that are above (supported by) the given object.

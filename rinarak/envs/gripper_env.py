@@ -358,7 +358,6 @@ class GripperSimulator(ContactModel, BaseEnv):
         
         return block_ids
     
-
     def remove_object(self, object_id=None, name=None):
         """
         Remove an object from the simulation by its ID or name.
@@ -403,11 +402,25 @@ class GripperSimulator(ContactModel, BaseEnv):
         
         # Unregister from contact model if name is available
         if name is not None and self.auto_register:
-            self.unregister_object(name)
+            try:
+                self.unregister_object(name)
+            except AttributeError as e:
+                print(f"Warning: Cannot unregister object '{name}': {e}")
+                # If the ContactModel parent class doesn't have unregister_object method,
+                # We'll need to manually clean up contact model data
+                if name in self.object_registry:
+                    del self.object_registry[name]
+                if name in self.object_attributes:
+                    del self.object_attributes[name]
+                if name in self.object_names:
+                    self.object_names.remove(name)
         
         # Update the contact analysis
         if self.auto_register:
-            self.update_contact_analysis()
+            try:
+                self.update_contact_analysis()
+            except Exception as e:
+                print(f"Warning: Error updating contact analysis: {e}")
         
         return True
 
