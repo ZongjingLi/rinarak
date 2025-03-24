@@ -33,7 +33,6 @@ class GripperSimulator(ContactModel, BaseEnv):
         
         self.objects = []
         self.named_objects = {}  # New dictionary to store object names
-        self.robot = None
         
         # Panda robot constants
         self.PANDA_GRIPPER_INDEX = 9
@@ -48,6 +47,9 @@ class GripperSimulator(ContactModel, BaseEnv):
         self.ground_id = self.add_ground()
         self.robot = self.add_robot_arm(position=robot_position)
         self.reset_arm()
+    
+    @property
+    def robot_id(self): return self.robot
 
     def step(self, steps=1, update_contacts=False):
         """
