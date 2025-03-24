@@ -357,3 +357,72 @@ class GripperSimulator(ContactModel, BaseEnv):
         self.step(500, update_contacts=True)
         
         return block_ids
+    
+
+    def remove_object(self, object_id=None, name=None):
+        """
+        Remove an object from the simulation by its ID or name.
+        
+        Args:
+            object_id: The PyBullet ID of the object to remove
+            name: The name of the object to remove
+            
+        Returns:
+            True if object was removed, False otherwise
+        """
+        # If name is provided but not object_id, look up the ID
+        if object_id is None and name is not None:
+            object_id = self.get_object_id(name)
+            if object_id is None:
+                print(f"No object with name '{name}' found")
+                return False
+        
+        # If we still don't have an object_id, we can't proceed
+        if object_id is None:
+            print("Must provide either object_id or name")
+            return False
+            
+        # Don't remove the robot or ground
+        if object_id == self.robot or object_id == self.ground_id:
+            print("Cannot remove robot or ground")
+            return False
+        
+        # Remove from PyBullet
+        p.removeBody(object_id)
+        
+        # Remove from our object lists
+        if object_id in self.objects:
+            self.objects.remove(object_id)
+        
+        # Get the name before removing from named_objects
+        name = self.named_objects.get(object_id, None)
+        
+        # Remove from named_objects
+        if object_id in self.named_objects:
+            del self.named_objects[object_id]
+        
+        # Unregister from contact model if name is available
+        if name is not None and self.auto_register:
+            self.unregister_object(name)
+        
+        # Update the contact analysis
+        if self.auto_register:
+            self.update_contact_analysis()
+        
+        return True
+
+    def remove_last_object(self):
+        """
+        Remove the most recently added object.
+        
+        Returns:
+            True if an object was removed, False otherwise
+        """
+        # Find the last added object that isn't the robot or ground
+        for i in range(len(self.objects) - 1, -1, -1):
+            object_id = self.objects[i]
+            if object_id != self.robot and object_id != self.ground_id:
+                return self.remove_object(object_id=object_id)
+        
+        print("No removable objects found")
+        return False
