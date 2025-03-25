@@ -13,7 +13,7 @@ from rinarak.dklearn.nn import FCBlock
 from rinarak.utils.tensor import logit
 from rinarak.utils import indent_text
 from rinarak.dsl.dsl_values import Value, MultidimensionalArrayInterface, TensorValueDict, QINDEX,\
-    StateObjectReference, ListType, StateObjectList, MaskedTensorStorage
+    StateObjectReference, ListType, StateObjectList, MaskedTensorStorage, TensorValue
 from rinarak.dsl.dsl_types import AutoType, ObjectType
 
 from termcolor import colored
@@ -241,8 +241,7 @@ class TensorState(TensorStateBase):
         """Extra state string."""
         return ''
 
-
-def _pad_tensor(tensor: torch.Tensor, target_shape: Iterable[int], dtype: TensorStateBase, batch_dims: int, constant_value: float = 0.0):
+def _pad_tensor(tensor: torch.Tensor, target_shape: Iterable[int], dtype: TensorValue, batch_dims: int, constant_value: float = 0.0):
     target_shape = tuple(target_shape)
     paddings = list()
     for size, max_size in zip(tensor.size()[batch_dims:], target_shape):
@@ -255,8 +254,7 @@ def _pad_tensor(tensor: torch.Tensor, target_shape: Iterable[int], dtype: Tensor
         raise ValueError('Shape error during tensor padding.')
     paddings.reverse()  # no need to add batch_dims.
     return F.pad(tensor, paddings, "constant", constant_value)
-
-def concat_tvalues(*args: TensorState):  # will produce a Value with batch_dims == 1, but the input can be either 0-batch or 1-batch.
+def concat_tvalues(*args: TensorValue):  # will produce a Value with batch_dims == 1, but the input can be either 0-batch or 1-batch.
     assert len(args) > 0
     include_tensor_optimistic_values = any([v.tensor_optimistic_values is not None for v in args])
     include_tensor_quantized_values = any([v.tensor_quantized_values is not None for v in args])
@@ -318,8 +316,7 @@ def concat_tvalues(*args: TensorState):  # will produce a Value with batch_dims 
         torch.cat(all_tensor_optimistic_values, dim=0) if include_tensor_optimistic_values else None,
         torch.cat(all_tensor_quantized_values, dim=0) if include_tensor_quantized_values else None
     )
-    return TensorState(args[0].dtype, args[0].batch_variables, masked_tensor_storage, batch_dims=1)
-
+    return TensorValue(args[0].dtype, args[0].batch_variables, masked_tensor_storage, batch_dims=1)
 
 
 ObjectNameArgument = Union[Iterable[str], Mapping[str, ObjectType]]
