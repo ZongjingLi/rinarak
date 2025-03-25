@@ -5,6 +5,7 @@
 # @Last Modified time: 2023-10-19 04:42:09
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -12,7 +13,7 @@ from rinarak.dklearn.nn import FCBlock
 from rinarak.utils.tensor import logit
 from rinarak.utils import indent_text
 from rinarak.dsl.dsl_values import Value, MultidimensionalArrayInterface, TensorValueDict, QINDEX,\
-    StateObjectReference, ListType, StateObjectList
+    StateObjectReference, ListType, StateObjectList, MaskedTensorStorage
 from rinarak.dsl.dsl_types import AutoType, ObjectType
 
 from termcolor import colored
@@ -239,6 +240,87 @@ class TensorState(TensorStateBase):
     def extra_state_str_after(self) -> str:
         """Extra state string."""
         return ''
+
+
+def _pad_tensor(tensor: torch.Tensor, target_shape: Iterable[int], dtype: TensorStateBase, batch_dims: int, constant_value: float = 0.0):
+    target_shape = tuple(target_shape)
+    paddings = list()
+    for size, max_size in zip(tensor.size()[batch_dims:], target_shape):
+        paddings.extend((max_size - size, 0))
+    if tensor.dim() - batch_dims == len(target_shape):
+        pass
+    elif tensor.dim() - batch_dims == len(target_shape) + dtype.ndim():
+        paddings.extend([0 for _ in range(dtype.ndim() * 2)])
+    else:
+        raise ValueError('Shape error during tensor padding.')
+    paddings.reverse()  # no need to add batch_dims.
+    return F.pad(tensor, paddings, "constant", constant_value)
+
+def concat_tvalues(*args: TensorState):  # will produce a Value with batch_dims == 1, but the input can be either 0-batch or 1-batch.
+    assert len(args) > 0
+    include_tensor_optimistic_values = any([v.tensor_optimistic_values is not None for v in args])
+    include_tensor_quantized_values = any([v.tensor_quantized_values is not None for v in args])
+
+    # Sanity check.
+    for value in args[1:]:
+        assert value.is_torch_tensor
+        assert value.dtype == args[0].dtype
+        assert value.batch_variables == args[0].batch_variables
+        if include_tensor_optimistic_values:
+            pass  # we have default behavior for None.
+        if include_tensor_quantized_values:
+            assert value.tensor_quantized_values is not None
+
+    device = args[0].tensor.device
+
+    # Collect all tensors.
+    all_tensor = [v.tensor for v in args]
+    all_tensor_mask = [v.tensor_mask for v in args]
+    all_tensor_optimistic_values = [v.tensor_optimistic_values for v in args]
+    all_tensor_quantized_values = [v.tensor_quantized_values for v in args]
+
+    target_shape = tuple([
+        max([v.get_variable_size(i) for v in args])
+        for i in range(args[0].nr_variables)
+    ])
+    for i in range(len(args)):
+        tensor, tensor_mask, tensor_optimistic_values, tensor_quantized_values = all_tensor[i], all_tensor_mask[i], all_tensor_optimistic_values[i], all_tensor_quantized_values[i]
+        all_tensor[i] = _pad_tensor(tensor, target_shape, args[i].dtype, args[i].batch_dims)
+
+        if tensor_mask is None:
+            tensor_mask = torch.ones(target_shape, dtype=torch.bool, device=device)
+        else:
+            tensor_mask = _pad_tensor(tensor_mask, target_shape, args[i].dtype, args[i].batch_dims)
+        all_tensor_mask[i] = tensor_mask
+
+        if include_tensor_optimistic_values:
+            if tensor_optimistic_values is None:
+                tensor_optimistic_values = torch.zeros(target_shape, dtype=torch.int64, device=device)
+            else:
+                tensor_optimistic_values = _pad_tensor(tensor_optimistic_values, target_shape, args[i].dtype, args[i].batch_dims)
+            all_tensor_optimistic_values[i] = tensor_optimistic_values
+
+        if include_tensor_quantized_values:
+            tensor_quantized_values = _pad_tensor(tensor_quantized_values, target_shape, args[i].dtype, args[i].batch_dims)
+            all_tensor_quantized_values[i] = tensor_quantized_values
+
+        if args[0].batch_dims == 0:
+            all_tensor[i] = all_tensor[i].unsqueeze(0)
+            all_tensor_mask[i] = all_tensor_mask[i].unsqueeze(0)
+            all_tensor_optimistic_values[i] = all_tensor_optimistic_values[i].unsqueeze(0) if all_tensor_optimistic_values[i] is not None else None
+            all_tensor_quantized_values[i] = all_tensor_quantized_values[i].unsqueeze(0) if all_tensor_quantized_values[i] is not None else None
+        else:
+            assert args[0].batch_dims == 1
+
+    masked_tensor_storage = MaskedTensorStorage(
+        torch.cat(all_tensor, dim=0),
+        torch.cat(all_tensor_mask, dim=0),
+        torch.cat(all_tensor_optimistic_values, dim=0) if include_tensor_optimistic_values else None,
+        torch.cat(all_tensor_quantized_values, dim=0) if include_tensor_quantized_values else None
+    )
+    return TensorState(args[0].dtype, args[0].batch_variables, masked_tensor_storage, batch_dims=1)
+
+
 
 ObjectNameArgument = Union[Iterable[str], Mapping[str, ObjectType]]
 ObjectTypeArgument = Optional[Iterable[ObjectType]]
