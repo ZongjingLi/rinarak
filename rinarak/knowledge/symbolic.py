@@ -27,7 +27,8 @@ class DSLExpressionError(Exception):
 """
 an expression is the data class of tree with the following nodes.
 """
-
+import re
+from typing import List, Union, Any, Optional, Dict
 class Expression:
     def evaluate(self, inputs, executor):
         return inputs
@@ -36,104 +37,250 @@ class Expression:
         return f"Expression()"
         
     @staticmethod
-    def parse_program_string(program):
+    def parse_program_string(program: str) -> 'Expression':
+        """
+        Parse a string representation of a program into an Expression tree.
+        Supports logical operators (and, or, not) and function names with domain notation (name::domain).
+        
+        Args:
+            program: The program string to parse
+            
+        Returns:
+            An Expression object representing the parsed program
+        """
         # Remove whitespace
         program = program.strip()
         
-        # Assignment expression
+        if not program:
+            return Expression()
+        
+        # First check for assignment
         if ":=" in program:
             var_name, value_expr = program.split(":=", 1)
             return ValueAssignmentExpression(var_name.strip(), 
                                             Expression.parse_program_string(value_expr.strip()))
         
-        # Function application with arguments
-        function_match = re.match(r'^(\w+)\((.*)\)$', program)
-        if function_match:
-            func_name = function_match.group(1)
-            args_str = function_match.group(2)
+        # Parse logical expressions
+        return Expression._parse_logical_expression(program)
+    
+    @staticmethod
+    def _parse_logical_expression(expr: str) -> 'Expression':
+        """Parse expressions with 'or' operators at the top level"""
+        if not expr.strip():
+            return Expression()
+        
+        # Split by 'or' but respect parentheses
+        or_parts = Expression._split_by_operator(expr, "or")
+        
+        if len(or_parts) > 1:
+            # We have 'or' operators
+            operands = [Expression._parse_and_expression(part) for part in or_parts]
+            return LogicalOrExpression(operands)
+        else:
+            # No 'or' operators, try 'and'
+            return Expression._parse_and_expression(expr)
+    
+    @staticmethod
+    def _parse_and_expression(expr: str) -> 'Expression':
+        """Parse expressions with 'and' operators"""
+        if not expr.strip():
+            return Expression()
+        
+        # Split by 'and' but respect parentheses
+        and_parts = Expression._split_by_operator(expr, "and")
+        
+        if len(and_parts) > 1:
+            # We have 'and' operators
+            operands = [Expression._parse_not_expression(part) for part in and_parts]
+            return LogicalAndExpression(operands)
+        else:
+            # No 'and' operators, try 'not'
+            return Expression._parse_not_expression(expr)
+    
+    @staticmethod
+    def _parse_not_expression(expr: str) -> 'Expression':
+        """Parse expressions with 'not' operators"""
+        expr = expr.strip()
+        if not expr:
+            return Expression()
+        
+        # Check for 'not' operator
+        if expr.startswith("not "):
+            operand = Expression._parse_not_expression(expr[4:].strip())
+            return LogicalNotExpression(operand)
+        else:
+            # No 'not' operator, parse atoms (parenthesized expressions, function calls, etc.)
+            return Expression._parse_atom(expr)
+    
+    @staticmethod
+    def _parse_atom(expr: str) -> 'Expression':
+        """Parse atomic expressions (parenthesized expressions, function calls, variables, constants)"""
+        expr = expr.strip()
+        if not expr:
+            return Expression()
+        
+        # Parenthesized expressions
+        if expr.startswith("(") and expr.endswith(")"):
+            # Check if the outer parentheses are actually enclosing the entire expression
+            paren_level = 0
+            for i, char in enumerate(expr):
+                if char == '(':
+                    paren_level += 1
+                elif char == ')':
+                    paren_level -= 1
+                    # If we reach level 0 before the last character, these aren't the outer parentheses
+                    if paren_level == 0 and i < len(expr) - 1:
+                        break
+            
+            # If the parentheses enclose the entire expression, remove them and parse the content
+            if paren_level == 0:
+                return Expression._parse_logical_expression(expr[1:-1])
+        
+        # Function application
+        # Match function names including domain notation (name::domain)
+        func_match = re.match(r'^([\w:]+)\((.*)\)$', expr)
+        if func_match:
+            func_name = func_match.group(1)
+            args_str = func_match.group(2)
             
             # Parse arguments
-            args = []
-            if args_str.strip():
-                # Track nested parentheses to split arguments correctly
-                current_arg = ""
-                paren_level = 0
-                
-                for char in args_str:
-                    if char == ',' and paren_level == 0:
-                        # End of an argument
-                        args.append(Expression.parse_program_string(current_arg.strip()))
-                        current_arg = ""
-                    else:
-                        if char == '(':
-                            paren_level += 1
-                        elif char == ')':
-                            paren_level -= 1
-                        current_arg += char
-                
-                # Add the last argument
-                if current_arg:
-                    args.append(Expression.parse_program_string(current_arg.strip()))
-            
+            args = Expression._parse_arguments(args_str)
             return FunctionApplicationExpression(VariableExpression(func_name), args)
         
-        # Constants (uppercase identifiers)
-        if re.match(r'^[A-Z]{2,}$', program):
-            return ConstantExpression("Any",program)
+        # Constants (uppercase identifiers with at least 2 characters)
+        if re.match(r'^[A-Z]{2,}$', expr):
+            return ConstantExpression("Any", expr)
         
         # Numeric constant
-        if re.match(r'^-?\d+(\.\d+)?$', program):
-            return ConstantExpression("Any",float(program) if '.' in program else int(program))
+        if re.match(r'^-?\d+(\.\d+)?$', expr):
+            return ConstantExpression("Any", float(expr) if '.' in expr else int(expr))
         
-        # Variable
-        return VariableExpression(program)
+        # Variable (can include domain notation)
+        return VariableExpression(expr)
+    
+    @staticmethod
+    def _parse_arguments(args_str: str) -> List['Expression']:
+        """Parse function arguments, respecting nested parentheses and logical operators"""
+        args = []
+        if not args_str.strip():
+            return args
+        
+        # Track nested parentheses and quotes to split arguments correctly
+        current_arg = ""
+        paren_level = 0
+        
+        for char in args_str:
+            if char == ',' and paren_level == 0:
+                # End of an argument
+                args.append(Expression._parse_logical_expression(current_arg.strip()))
+                current_arg = ""
+            else:
+                if char == '(':
+                    paren_level += 1
+                elif char == ')':
+                    paren_level -= 1
+                current_arg += char
+        
+        # Add the last argument
+        if current_arg:
+            args.append(Expression._parse_logical_expression(current_arg.strip()))
+        
+        return args
+    
+    @staticmethod
+    def _split_by_operator(expr: str, operator: str) -> List[str]:
+        """
+        Split expression by operator (and, or) while respecting parentheses
+        
+        Args:
+            expr: The expression to split
+            operator: The operator to split by ('and' or 'or')
+            
+        Returns:
+            List of subexpressions
+        """
+        parts = []
+        current_part = ""
+        paren_level = 0
+        
+        i = 0
+        while i < len(expr):
+            # Check for operator
+            if (paren_level == 0 and 
+                expr[i:].startswith(operator) and 
+                (i == 0 or not expr[i-1].isalnum()) and 
+                (i + len(operator) >= len(expr) or not expr[i + len(operator)].isalnum())):
+                
+                # Found the operator outside parentheses
+                if current_part.strip():
+                    parts.append(current_part.strip())
+                current_part = ""
+                i += len(operator)
+            else:
+                if expr[i] == '(':
+                    paren_level += 1
+                elif expr[i] == ')':
+                    paren_level -= 1
+                current_part += expr[i]
+                i += 1
+        
+        # Add the last part
+        if current_part.strip():
+            parts.append(current_part.strip())
+        
+        return parts
 
 class VariableExpression(Expression):
-    def __init__(self, name):
-        super().__init__()
+    def __init__(self, name: str):
         self.name = name
     
     def __repr__(self):
-        return colored("Var", "cyan", attrs=["bold"]) + "(" + colored(self.name, "cyan") + ")"
+        return f"VariableExpression({self.name})"
 
-class ObjectOrValueExpression(Expression):
+class ConstantExpression(Expression):
+    def __init__(self, type_name: str, value: Any):
+        self.type_name = type_name
+        self.const = Value(type_name,value)
+    
     def __repr__(self):
-        return colored("ObjectOrValue", "cyan", attrs=["dark"]) + "()"
+        return f"ConstantExpression({self.type_name}, {self.const})"
+
+class FunctionApplicationExpression(Expression):
+    def __init__(self, function: Expression, arguments: List[Expression]):
+        self.func = function
+        self.args = arguments
+    
+    def __repr__(self):
+        return f"FunctionApplicationExpression({self.func}, {self.args})"
 
 class ValueAssignmentExpression(Expression):
-    def __init__(self, var_name, value_expr):
-        super().__init__()
-        self.var_name = var_name
-        self.value_expr = value_expr
+    def __init__(self, variable_name: str, value_expression: Expression):
+        self.variable_name = variable_name
+        self.value_expression = value_expression
     
     def __repr__(self):
-        return (colored("Assign", "cyan", attrs=["bold"]) + "(" + 
-                colored(self.var_name, "blue") + " " + 
-                colored(":=", "white") + " " + 
-                repr(self.value_expr) + ")")
+        return f"ValueAssignmentExpression({self.variable_name}, {self.value_expression})"
 
-class ConstantExpression(ObjectOrValueExpression):
-    def __init__(self, ctype, const):
-        super().__init__()
-        self.ctype = ctype
-        self.const = Value(ctype, const)
+class LogicalAndExpression(Expression):
+    def __init__(self, operands: List[Expression]):
+        self.operands = operands
     
     def __repr__(self):
-        return (colored("Const", "cyan", attrs=["bold"]) + "(" + 
-                colored(f"{self.const}", "blue") + ")")
+        return f"LogicalAndExpression({self.operands})"
 
-class FunctionApplicationExpression(ObjectOrValueExpression):
-    def __init__(self, func, args):
-        super().__init__()
-        self.func = func
-        self.args = args
+class LogicalOrExpression(Expression):
+    def __init__(self, operands: List[Expression]):
+        self.operands = operands
     
     def __repr__(self):
-        args_str = colored(", ", "white").join(repr(arg) for arg in self.args)
-        return (colored("FuncApp", "cyan", attrs=["bold"]) + "(" + 
-                colored(self.func, "blue") + ", " + 
-                colored("[", "white") + args_str + colored("]", "white") + ")")
+        return f"LogicalOrExpression({self.operands})"
 
+class LogicalNotExpression(Expression):
+    def __init__(self, operand: Expression):
+        self.operand = operand
+    
+    def __repr__(self):
+        return f"LogicalNotExpression({self.operand})"
 
 class State:
     """a state that maps a given feature name to a value"""
