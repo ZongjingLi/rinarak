@@ -29,6 +29,7 @@ an expression is the data class of tree with the following nodes.
 """
 import re
 from typing import List, Union, Any, Optional, Dict
+
 class Expression:
     def evaluate(self, inputs, executor):
         return inputs
@@ -137,8 +138,8 @@ class Expression:
                 return Expression._parse_logical_expression(expr[1:-1])
         
         # Function application
-        # Match function names including domain notation (name::domain)
-        func_match = re.match(r'^([\w:]+)\((.*)\)$', expr)
+        # Modified regex to properly handle identifiers with double colon notation (like point::Path)
+        func_match = re.match(r'^([a-zA-Z0-9_:]+)\((.*)\)$', expr)
         if func_match:
             func_name = func_match.group(1)
             args_str = func_match.group(2)
@@ -148,7 +149,8 @@ class Expression:
             return FunctionApplicationExpression(VariableExpression(func_name), args)
         
         # Constants (uppercase identifiers with at least 2 characters)
-        if re.match(r'^[A-Z]{2,}$', expr):
+        # Modified to consider colons as part of the identifier
+        if re.match(r'^[A-Z][A-Z0-9_:]*$', expr) and len(expr) >= 2:
             return ConstantExpression("Any", expr)
         
         # Numeric constant
@@ -202,16 +204,15 @@ class Expression:
         parts = []
         current_part = ""
         paren_level = 0
+        word_boundary_pattern = r'(?<!\w)' + re.escape(operator) + r'(?!\w)'
         
         i = 0
         while i < len(expr):
-            # Check for operator
-            if (paren_level == 0 and 
-                expr[i:].startswith(operator) and 
-                (i == 0 or not expr[i-1].isalnum()) and 
-                (i + len(operator) >= len(expr) or not expr[i + len(operator)].isalnum())):
-                
-                # Found the operator outside parentheses
+            # Check for operator with word boundaries
+            match = re.match(word_boundary_pattern, expr[i:])
+            
+            if paren_level == 0 and match:
+                # Found the operator outside parentheses with proper word boundaries
                 if current_part.strip():
                     parts.append(current_part.strip())
                 current_part = ""

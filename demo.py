@@ -103,7 +103,12 @@ if __name__ == "__main__":
     print(res)
 
     res = blockworld_executor.evaluate("on(1,2)", context)
+
     print(res)
+
+    from rinarak.knowledge.symbolic import Expression
+    expr = Expression.parse_program_string("point:Path(1, 2)")
+    print(expr)
 
     optimizer = torch.optim.Adam(blockworld_executor.parameters(), lr = 1e-2)
     for epoch in range(500):
