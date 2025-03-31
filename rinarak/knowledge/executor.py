@@ -113,7 +113,6 @@ class FunctionExecutor(nn.Module):
         """
 
         if isinstance(expr, FunctionApplicationExpression):
-            #print(self._function_registry)
             func = self._function_registry[expr.func.name]
             args = [self._evaluate(arg) for arg in expr.args]
             return func(*args)

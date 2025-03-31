@@ -137,8 +137,12 @@ class ICCTransformer(Transformer):
     """
     def predicate_definition(self, args):
         predicate_name = args[0]
-        parameters = args[1]
-        output_type = "boolean" if len(args) == 2 else args[-1]
+        if len(args) == 2:
+            parameters = []
+        else:
+            parameters = args[1]
+
+        output_type = args[-1]
         self.domain.define_predicate(predicate_name, parameters, output_type)
     
     def predicate_name(self, args):return str(args[0])
