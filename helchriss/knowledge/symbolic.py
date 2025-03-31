@@ -9,12 +9,12 @@ import torch.nn.functional as F
 import numpy as np
 import matplotlib.pyplot as plt
 
-from rinarak.dklearn.nn import FCBlock
-from rinarak.utils.tensor import logit
-from rinarak.utils import indent_text
-from rinarak.dsl.dsl_values import Value, MultidimensionalArrayInterface, TensorValueDict, QINDEX,\
+from helchriss.dklearn.nn import FCBlock
+from helchriss.utils.tensor import logit
+from helchriss.utils import indent_text
+from helchriss.dsl.dsl_values import Value, MultidimensionalArrayInterface, TensorValueDict, QINDEX,\
     StateObjectReference, ListType, StateObjectList, MaskedTensorStorage, TensorValue
-from rinarak.dsl.dsl_types import AutoType, ObjectType
+from helchriss.dsl.dsl_types import AutoType, ObjectType
 
 from termcolor import colored
 from dataclasses import dataclass

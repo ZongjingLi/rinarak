@@ -13,9 +13,9 @@ import functools
 from .symbolic import Expression, FunctionApplicationExpression, ConstantExpression
 from abc import abstractmethod
 
-from rinarak.logger import get_logger
-from rinarak.dsl.dsl_types import FuncType
-from rinarak.dsl.dsl_values import Value, ProbValue
+from helchriss.logger import get_logger
+from helchriss.dsl.dsl_types import FuncType
+from helchriss.dsl.dsl_values import Value, ProbValue
 
 logger = get_logger(__file__)
 
