@@ -6,8 +6,8 @@
 # @Last Modified time: 2025-02-19 20:23:27
 
 import open3d as o3d
-from rinarak.domain import load_domain_string, Domain
-from rinarak.knowledge.executor import CentralExecutor
+from helchriss.domain import load_domain_string, Domain
+from helchriss.knowledge.executor import CentralExecutor
 
 blockworld_domain_str = """
 (domain Blockworld)
@@ -106,7 +106,7 @@ if __name__ == "__main__":
 
     print(res)
 
-    from rinarak.knowledge.symbolic import Expression
+    from helchriss.knowledge.symbolic import Expression
     expr = Expression.parse_program_string("point:Path(1, 2)")
     print(expr)
 

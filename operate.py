@@ -1,6 +1,6 @@
 #import open3d as o3d
-from rinarak.benchmarks.vqa.shapes3 import Shapes3Dataset
-from rinarak import stprint
+from helchriss.benchmarks.vqa.shapes3 import Shapes3Dataset
+from helchriss import stprint
 
 train_dataset = Shapes3Dataset(dataset_size=1024)  # create a dataset with 1024 samples
 test_dataset = Shapes3Dataset(dataset_size=128)  # create a dataset with 128 samples for testing

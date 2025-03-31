@@ -1,11 +1,11 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="rinarak",
+    name="helchriss",
     version="1.0",
     author="Yiqi Sun (Zongjing Li)",
     author_email="ysun697@gatech.edu",
-    description="rinarak, the personal package for machine learning and more",
+    description="helchriss, the personal package for machine learning and more",
 
     # project main page
 
@@ -13,7 +13,7 @@ setup(
     packages=find_packages(),
     include_package_data = True,
     package_data={
-        'rinarak': ['rinarak/*.grammar']
+        'helchriss': ['helchriss/*.grammar']
         },
 )
 

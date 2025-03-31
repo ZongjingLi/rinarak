@@ -1,5 +1,5 @@
 import open3d as o3d
-from rinarak.envs.gripper_env import GripperSimulator
+from helchriss.envs.gripper_env import GripperSimulator
 
 if __name__ == "__main__":
     # Create simulator with integrated contact modeling
@@ -40,7 +40,7 @@ if __name__ == "__main__":
     sim.build_support_tensor()
     print(sim.contact_tensor)
     print(sim.support_tensor)
-    from rinarak.utils import stprint
+    from helchriss.utils import stprint
     stprint(sim.get_object_attributes())
     
     # Pick the top block
