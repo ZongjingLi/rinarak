@@ -3,7 +3,7 @@ from typing import Optional, Sequence, Any, Iterable, Mapping, Tuple, Dict, Unio
 from dataclasses import dataclass
 from termcolor import colored
 
-from rinarak.utils import stprint_str
+from helchriss.utils import stprint_str
 from .dsl_types import ListType, ObjectType
 import torch
 
