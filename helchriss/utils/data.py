@@ -11,7 +11,7 @@ import torch.nn as nn
 import random
 import itertools
 from typing import List, Any
-from rinarak.logger import get_logger
+from helchriss.logger import get_logger
 
 logger = get_logger(__file__)
 class BaseDataset(object):
