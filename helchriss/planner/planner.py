@@ -9,7 +9,7 @@ import torch.nn as nn
 
 import numpy as np
 
-from rinarak.dklearn.nn import FCBlock, ConvolutionUnits
+from helchriss.dklearn.nn import FCBlock, ConvolutionUnits
 
 class BackwardSearchPlanner:
 	def __init__(self, config):
