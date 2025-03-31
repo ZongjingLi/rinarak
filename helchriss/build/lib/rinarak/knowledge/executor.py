@@ -7,13 +7,13 @@ from torch.nn import functional as F
 from .embedding  import build_box_registry
 from .entailment import build_entailment
 from .predicates import PredicateFilter
-from rinarak.utils import freeze
-from rinarak.utils.misc import *
-from rinarak.utils.tensor import logit, expat
-from rinarak.types import baseType, arrow
-from rinarak.program import Primitive, Program
+from helchriss.utils import freeze
+from helchriss.utils.misc import *
+from helchriss.utils.tensor import logit, expat
+from helchriss.types import baseType, arrow
+from helchriss.program import Primitive, Program
 from rinarak.dsl.logic_types import boolean
-from rinarak.algs.search.heuristic_search import run_heuristic_search
+from helchriss.algs.search.heuristic_search import run_heuristic_search
 from dataclasses import dataclass
 import copy
 import re

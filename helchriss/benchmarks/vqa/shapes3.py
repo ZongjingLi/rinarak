@@ -2,8 +2,8 @@ import torch
 import numpy as np
 import numpy.random as npr
 import cv2
-from rinarak.utils.data import FilterableDatasetView, FilterableDatasetUnwrapped
-from rinarak.utils.collate import VarLengthCollateV2
+from helchriss.utils.data import FilterableDatasetView, FilterableDatasetUnwrapped
+from helchriss.utils.collate import VarLengthCollateV2
 from torch.utils.data import DataLoader
 
 g_shapes_index_to_name = {0: 'circle', 1: 'triangle', 2: 'rectangle'}

@@ -7,8 +7,8 @@
  '''
 
 import torch
-from rinarak.types import *
-from rinarak.program import *
+from helchriss.types import *
+from helchriss.program import *
 
 # [Type Specification] of ObjectSet, Attribute, Boolean and other apsects
 Stream = baseType("Stream")
@@ -19,4 +19,4 @@ boolean = baseType("Boolean")
 Concept = baseType("Concept")
 integer = baseType("Integer")
 
-from rinarak.utils.tensor import logit, expat
+from helchriss.utils.tensor import logit, expat

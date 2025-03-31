@@ -2,8 +2,8 @@ import contextlib
 from typing import Optional, Dict, List, Callable, Union
 from dataclasses import dataclass
 from enum import Enum
-from rinarak.utils.default import option_context
-from rinarak.utils.caches import cached_property
+from helchriss.utils.default import option_context
+from helchriss.utils.caches import cached_property
 
 class CCGCompositionDirection(Enum):
     """Composition direction (left or right)"""

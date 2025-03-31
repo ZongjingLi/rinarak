@@ -3,7 +3,7 @@
 
 from typing import Optional, Union, Tuple, List
 
-from rinarak.utils.caches import cached_property
+from helchriss.utils.caches import cached_property
 from .composition import CCGCompositionDirection, CCGCompositionError, get_ccg_composition_context, CCGComposable
 
 __all__ = [

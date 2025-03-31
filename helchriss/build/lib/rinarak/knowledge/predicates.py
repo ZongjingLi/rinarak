@@ -10,8 +10,8 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 
-from rinarak.dklearn.nn import FCBlock
-from rinarak.utils.tensor import logit
+from helchriss.dklearn.nn import FCBlock
+from helchriss.utils.tensor import logit
 
 class State:
     def __init__(self, data):
