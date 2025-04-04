@@ -1,6 +1,7 @@
 import os
 import json
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
+from typing import List
 
 def load_json(path):
     with open(path,'r') as f:
@@ -16,3 +17,16 @@ def save_json(data,path):
 
 def save_im(im_arr, path = "tmp.png"):
     plt.imsave(path,im_arr)
+
+
+def load_corpus(corpus_path : str) -> List[str]:    
+    sequences = []
+    with open(corpus_path) as corpus:
+        for line in corpus:
+            line = line.strip()
+            if line:
+                line = line.lower()
+                line = ' '.join(line.split())
+                sequences.append(line)
+    return sequences
+

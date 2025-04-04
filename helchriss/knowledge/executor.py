@@ -38,6 +38,9 @@ class FunctionExecutor(nn.Module):
     
     @property
     def domain(self) -> 'Domain' : return self._domain
+
+    @property
+    def types(self) : return self.domain.types
     
     def register_function(self, name: str, func: Callable):
         """Register an implementation for a function.

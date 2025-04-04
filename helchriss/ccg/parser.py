@@ -140,7 +140,7 @@ class G2L2Parser(nn.Module):
                                         chart[(start, end)].append(result)
                 
                 # Apply expected execution to compress similar derivations
-                self._expected_execution(chart[(start, end)])
+                #self._expected_execution(chart[(start, end)])
         
         return chart[(0, n)]
     
