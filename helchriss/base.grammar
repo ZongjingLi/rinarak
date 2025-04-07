@@ -86,7 +86,7 @@ type_name: VARNAME
 vector_choice: VARNAME
 vector_size: "," NUMBER
 
-list_type_name : "list" "[" type_name "]"
+list_type_name : "List" "[" type_name "]"
 
 
 // predefined data_type

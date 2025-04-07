@@ -422,3 +422,4 @@ def indent_text(text: str, level = 1, indent_format: Optional[str] = None, tabsi
     if indent_first:
         return indent_format + text.replace('\n', '\n' + indent_format)
     return text.replace('\n', '\n' + indent_format)
+
