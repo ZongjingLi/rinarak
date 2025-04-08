@@ -1,16 +1,35 @@
-from tqdm.gui import tqdm
-import time
 
-# Basic usage with an iterable
-for i in tqdm(range(100)):
-    time.sleep(0.05)  # Some time-consuming operation
+import torch
+import torch.nn as nn
+from helchriss.knowledge.executor import CentralExecutor
+from helchriss.domain import load_domain_string
 
-# With a manually managed progress bar
-with tqdm(total=100) as pbar:
-    for i in range(100):
-        time.sleep(0.05)
-        pbar.update(1)
+objects_domain_str = """
+(domain Objects)
+(:type
+    Obj - vector[float, 128] ;; unnormalized distribution over a list of objects
+    ObjSet - List[vector[float,128]] ;; a normalized distribution over a list of objects
+)
+(:predicate
+    scene -> ObjSet
+    unique ?x-ObjSet -> Obj
+)
+"""
 
-# Specifying additional parameters
-for i in tqdm(range(100), desc="Processing", unit="items", colour="green"):
-    time.sleep(0.05)
+objects_domain = load_domain_string(objects_domain_str)
+
+objects_domain.print_summary()
+
+class ObjectsExecutor(CentralExecutor):
+    
+    def scene(self):
+        features = self._grounding["objects"] # [nxd] features
+        scores = self._grounding["scores"] # [nx1] scores as logits
+        return torch.cat([features, scores], dim = -1)
+
+    def unique(self, objset):
+        features = objset[:,:-2] # [nxd] features
+        scores = torch.logit(torch.softmax(objset[:,-1:])) # [nx1] scores normalized
+        return torch.cat([features, scores], dim = -1)
+
+objects_executor = ObjectsExecutor(objects_domain)

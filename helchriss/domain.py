@@ -164,6 +164,10 @@ class ICCTransformer(Transformer):
     def value_type_name(self, args):
         return args[0]
     
+    def vector_type_name(self, args):
+        print(args)
+        return args
+    
     def type_name(self, args):
         return str(args[0])
   
