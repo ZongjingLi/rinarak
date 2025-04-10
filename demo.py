@@ -14,7 +14,7 @@ blockworld_domain_str = """
 (:type
     state - vector[float,3] ;; encoding of position and is holding
     position - vector[float,2]
-    scene - list[state]
+    scene - List[ vector[float,2] ]
 )
 (:predicate
     block_position ?x-state -> position
@@ -83,7 +83,7 @@ class BlockworldExecutor(CentralExecutor):
         return self.grounding["block_position"][i] - self.grounding["block_position"][j]
 
 blockworld_domain = load_domain_string(blockworld_domain_str)
-#blockworld_domain.print_summary()
+blockworld_domain.print_summary()
 
 blockworld_executor = BlockworldExecutor(blockworld_domain, concept_dim = 128)
 

@@ -179,8 +179,11 @@ class ICCTransformer(Transformer):
     
     def vector_type_name(self, args):
         vector_choice = args[0]
-        vector_size = [str(num) for num in args[1:]]
+        vector_size = [str(num).replace("'","") for num in args[1:]]
         return f"vector[{vector_choice},{vector_size}]"
+    
+    def list_type_name(self, args):
+        return f"List[{args[0]}]"
     
     def vector_choice(self, args):return args[0]
     
