@@ -1,186 +1,201 @@
-import matplotlib.pyplot as plt
-import networkx as nx
 import numpy as np
-import math
+import matplotlib.pyplot as plt
+from scipy.sparse import lil_matrix, csr_matrix
+from scipy.sparse.linalg import spsolve
+import time
 
-def visualize_graph_and_mst_hexagonal(edges, mst_edges):
+def exact_solution(x):
     """
-    Visualize the original graph and its minimum spanning tree with a hexagonal layout
-    
-    Args:
-        edges: List of tuples (u, v, weight) representing edges of the original graph
-        mst_edges: List of tuples (u, v, weight) representing edges of the MST
+    Exact solution u(x) = sin(pi*x)
+    Corresponding to the right-hand side f(x) = pi^2 * sin(pi*x)
     """
-    # Create the original graph
-    G = nx.Graph()
-    for u, v, weight in edges:
-        G.add_edge(u, v, weight=weight)
+    return np.sin(np.pi * x * 3)
+
+def source_term(x):
+    """
+    The right-hand side of the equation f(x) = pi^2 * sin(pi*x)
+    """
+    return ((3*np.pi)**2) * np.sin(3*np.pi * x)
+
+def solve_fem_1d(n):
+    """
+    Solve the 1D boundary value problem using finite element method
+    -u''(x) = f(x), x in [0,1]
+    u(0) = u(1) = 0
     
-    # Create the MST graph
-    MST = nx.Graph()
-    for u, v, weight in mst_edges:
-        MST.add_edge(u, v, weight=weight)
+    Parameters:
+        n: Number of subintervals
     
-    # Set up the visualization
-    plt.figure(figsize=(15, 7))
+    Returns:
+        x_nodes: Node coordinates
+        u_h: Finite element solution
+        u_exact: Exact solution at nodes
+    """
+    # Step size
+    h = 1.0 / n
     
-    # Define a hexagonal layout
-    # Position nodes at the vertices of a regular hexagon
-    pos = {
-        'a': (0, 0),          # bottom left
-        'b': (1, 0),          # bottom right
-        'c': (1.5, 0.9),      # right
-        'd': (1, 1.8),        # top right
-        'e': (0, 1.8),        # top left
-        'f': (-0.5, 0.9)      # left
-    }
+    # Create nodes
+    x_nodes = np.linspace(0, 1, n+1)
     
-    # Plot the original graph
-    plt.subplot(1, 2, 1)
+    # Build stiffness matrix and load vector
+    A = lil_matrix((n+1, n+1))
+    b = np.zeros(n+1)
     
-    # Draw edges
-    nx.draw_networkx_edges(G, pos, width=1.5, edge_color='gray')
+    # Assemble stiffness matrix and load vector
+    for i in range(n):
+        # Interval [x_i, x_{i+1}]
+        x_left = x_nodes[i]
+        x_right = x_nodes[i+1]
+        
+        # Element stiffness matrix
+        A[i, i] += 1.0 / h
+        A[i, i+1] += -1.0 / h
+        A[i+1, i] += -1.0 / h
+        A[i+1, i+1] += 1.0 / h
+        
+        # Element load vector (using trapezoidal rule for integration)
+        f_left = source_term(x_left)
+        f_right = source_term(x_right)
+        b[i] += h * (f_left / 2)
+        b[i+1] += h * (f_right / 2)
     
-    # Draw specific edges with different colors
-    edge_colors = []
-    edge_list = []
+    # Apply boundary conditions
+    A[0, :] = 0
+    A[0, 0] = 1
+    b[0] = 0
     
-    for u, v, _ in edges:
-        edge_list.append((u, v))
-        # Check if this edge is on the outer hexagon
-        if ((u == 'a' and v == 'b') or (u == 'b' and v == 'a') or
-            (u == 'b' and v == 'c') or (u == 'c' and v == 'b') or
-            (u == 'c' and v == 'd') or (u == 'd' and v == 'c') or
-            (u == 'd' and v == 'e') or (u == 'e' and v == 'd') or
-            (u == 'e' and v == 'f') or (u == 'f' and v == 'e') or
-            (u == 'f' and v == 'a') or (u == 'a' and v == 'f')):
-            edge_colors.append('navy')
-        else:
-            edge_colors.append('gray')
+    A[n, :] = 0
+    A[n, n] = 1
+    b[n] = 0
     
-    # Draw edges with appropriate colors
-    nx.draw_networkx_edges(G, pos, edgelist=edge_list, width=2.0, edge_color=edge_colors)
+    # Convert to CSR format for efficient solving
+    A = csr_matrix(A)
     
-    # Draw nodes
-    nx.draw_networkx_nodes(G, pos, node_size=700, node_color='skyblue', 
-                          edgecolors='black', linewidths=2)
+    # Solve the linear system
+    u_h = spsolve(A, b)
     
-    # Add node labels
-    nx.draw_networkx_labels(G, pos, font_size=15, font_weight='bold')
+    # Calculate the exact solution
+    u_exact = exact_solution(x_nodes)
     
-    # Add edge labels (weights)
-    edge_labels = {(u, v): w for u, v, w in edges}
-    nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=12, font_color='blue')
+    return x_nodes, u_h, u_exact
+
+def compute_errors(n):
+    """
+    Compute the errors of the finite element solution
     
-    plt.title("Original Graph", fontsize=16)
-    plt.axis('off')
+    Parameters:
+        n: Number of subintervals
     
-    # Plot the MST
-    plt.subplot(1, 2, 2)
+    Returns:
+        l2_error: L2 error
+        h1_error: H1 seminorm error
+    """
+    x_nodes, u_h, u_exact = solve_fem_1d(n)
+    h = 1.0 / n
     
-    # Draw edges
-    nx.draw_networkx_edges(MST, pos, width=2.5, edge_color='red')
+    # Calculate L2 error
+    l2_error = np.sqrt(h * np.sum((u_h - u_exact)**2))
     
-    # Draw nodes
-    nx.draw_networkx_nodes(MST, pos, node_size=700, node_color='lightgreen', 
-                          edgecolors='black', linewidths=2)
+    # Calculate H1 seminorm error (L2 error of the derivative)
+    h1_seminorm_error = 0
     
-    # Add node labels
-    nx.draw_networkx_labels(MST, pos, font_size=15, font_weight='bold')
+    # Derivative of the exact solution
+    du_exact = lambda x: np.pi * np.cos(np.pi * x)
     
-    # Add edge labels (weights) for MST
-    mst_edge_labels = {(u, v): w for u, v, w in mst_edges}
-    nx.draw_networkx_edge_labels(MST, pos, edge_labels=mst_edge_labels, font_size=12, font_color='blue')
+    for i in range(n):
+        # The derivative of the finite element solution is constant in each element
+        du_h = (u_h[i+1] - u_h[i]) / h
+        
+        # Evaluate the derivative of the exact solution at the midpoint
+        x_mid = (x_nodes[i] + x_nodes[i+1]) / 2
+        du_exact_mid = du_exact(x_mid)
+        
+        # Accumulate the error
+        h1_seminorm_error += h * (du_h - du_exact_mid)**2
     
-    plt.title("Minimum Spanning Tree", fontsize=16)
-    plt.axis('off')
+    h1_seminorm_error = np.sqrt(h1_seminorm_error)
+    
+    return l2_error, h1_seminorm_error
+
+def convergence_study():
+    """
+    Perform a convergence study to verify the convergence rate of errors
+    """
+    # Different mesh sizes
+    n_values = [8, 16, 32, 64, 128, 256]
+    h_values = [1.0/n for n in n_values]
+    
+    # Store errors and computation times
+    l2_errors = []
+    h1_errors = []
+    times = []
+    
+    for n in n_values:
+        start_time = time.time()
+        l2_error, h1_error = compute_errors(n)
+        end_time = time.time()
+        
+        l2_errors.append(l2_error)
+        h1_errors.append(h1_error)
+        times.append(end_time - start_time)
+        
+        print(f"Grid size n = {n}:")
+        print(f"  h = {1.0/n:.6f}")
+        print(f"  L2 error = {l2_error:.6e}")
+        print(f"  H1 seminorm error = {h1_error:.6e}")
+        print(f"  Computation time = {times[-1]:.6f} seconds")
+        
+        # Calculate convergence rate if not the first grid
+        if len(l2_errors) > 1:
+            l2_rate = np.log(l2_errors[-2]/l2_errors[-1]) / np.log(2)
+            h1_rate = np.log(h1_errors[-2]/h1_errors[-1]) / np.log(2)
+            print(f"  L2 error convergence rate = {l2_rate:.4f}")
+            print(f"  H1 seminorm error convergence rate = {h1_rate:.4f}")
+        
+        print("")
+    
+    # Plot error convergence
+    plt.figure(figsize=(10, 8))
+    
+    plt.loglog(h_values, l2_errors, 'o-', label='L2 error')
+    plt.loglog(h_values, h1_errors, 's-', label='H1 seminorm error')
+    
+    # Add reference lines
+    ref_h2 = [h**2 * l2_errors[0]/(h_values[0]**2) for h in h_values]
+    ref_h1 = [h * h1_errors[0]/h_values[0] for h in h_values]
+    
+    plt.loglog(h_values, ref_h2, '--', label='O(h²) reference')
+    plt.loglog(h_values, ref_h1, '-.', label='O(h) reference')
+    
+    plt.xlabel('Mesh size (h)')
+    plt.ylabel('Error')
+    plt.title('Finite Element Method Error Convergence Study')
+    plt.legend()
+    plt.grid(True)
+    
+    # Plot comparison of solutions
+    plt.figure(figsize=(10, 6))
+    
+    # Choose a mesh size for illustration
+    n_plot = 16
+    x_nodes, u_h, u_exact = solve_fem_1d(n_plot)
+    
+    # Generate denser points for the exact solution
+    x_dense = np.linspace(0, 1, 1000)
+    u_exact_dense = exact_solution(x_dense)
+    
+    plt.plot(x_dense, u_exact_dense, 'r-', label='Exact solution')
+    plt.plot(x_nodes, u_h, 'bo-', label=f'FEM solution (n={n_plot})')
+    
+    plt.xlabel('x')
+    plt.ylabel('u(x)')
+    plt.title('Comparison of Exact and Finite Element Solutions')
+    plt.legend()
+    plt.grid(True)
     
     plt.tight_layout()
-    plt.savefig("graph_with_mst_hexagonal.png", dpi=300, bbox_inches='tight')
     plt.show()
 
-def kruskal_algorithm(edges):
-    """
-    Implementation of Kruskal's algorithm to find minimum spanning tree
-    
-    Args:
-        edges: List of tuples (u, v, weight) representing edges
-        
-    Returns:
-        List of tuples (u, v, weight) forming the MST
-    """
-    # Sort edges by weight
-    sorted_edges = sorted(edges, key=lambda x: x[2])
-    
-    # Initialize disjoint set for each vertex
-    vertices = set()
-    for u, v, _ in edges:
-        vertices.add(u)
-        vertices.add(v)
-    
-    parent = {vertex: vertex for vertex in vertices}
-    
-    # Find operation with path compression
-    def find(vertex):
-        if parent[vertex] != vertex:
-            parent[vertex] = find(parent[vertex])
-        return parent[vertex]
-    
-    # Union operation
-    def union(vertex1, vertex2):
-        root1 = find(vertex1)
-        root2 = find(vertex2)
-        parent[root1] = root2
-    
-    # Initialize MST
-    mst = []
-    
-    # Process edges in sorted order
-    for u, v, weight in sorted_edges:
-        # Check if adding this edge creates a cycle
-        if find(u) != find(v):
-            union(u, v)
-            mst.append((u, v, weight))
-            
-            # MST has (n-1) edges where n is the number of vertices
-            if len(mst) == len(vertices) - 1:
-                break
-    
-    return mst
-
-# Define edges based on the hexagonal image provided
-edges = [
-    # Outer hexagon edges
-    ('a', 'b', 3), ('b', 'c', 1), ('c', 'd', 1), 
-    ('d', 'e', 2), ('e', 'f', 1), ('f', 'a', 5),
-    # Inner edges
-    ('a', 'c', 2), ('a', 'e', 4), ('b', 'd', 3),
-    ('b', 'e', 3), ('c', 'f', 4),
-    ('d', 'f', 3), 
-]
-
-# Find the MST using Kruskal's algorithm
-mst_edges = kruskal_algorithm(edges)
-
-# Print the results
-print("Edges in the Minimum Spanning Tree:")
-for u, v, weight in sorted(mst_edges, key=lambda x: x[2]):
-    print(f"({u}, {v}): {weight}")
-
-# Calculate total weight
-total_weight = sum(weight for _, _, weight in mst_edges)
-print(f"\nTotal weight of MST: {total_weight}")
-
-# Check if MST is unique
-edge_weights = {}
-for _, _, weight in sorted(edges, key=lambda x: x[2]):
-    if weight not in edge_weights:
-        edge_weights[weight] = 0
-    edge_weights[weight] += 1
-
-print("\nEdge weight distribution:")
-for weight, count in sorted(edge_weights.items()):
-    print(f"Weight {weight}: {count} edges")
-
-# Visualize the graphs
-visualize_graph_and_mst_hexagonal(edges, mst_edges)
+if __name__ == "__main__":
+    # Run the convergence study
+    convergence_study()
