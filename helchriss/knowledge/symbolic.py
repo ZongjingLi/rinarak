@@ -24,6 +24,11 @@ import re
 class DSLExpressionError(Exception):
     pass
 
+"""Allowed expression like List[f](x) this expression suggest such that the f(x) is element wise implementation
+List[red](scene()) this suggest that scene is a list of elements and color can red need cast
+so the syntatic type will be List[red]()
+"""
+
 """
 an expression is the data class of tree with the following nodes.
 """
@@ -282,6 +287,15 @@ class LogicalNotExpression(Expression):
     
     def __repr__(self):
         return f"LogicalNotExpression({self.operand})"
+    
+class ListExpression(Expression):
+    def __init__(self, function, arg):
+        self.function = function
+        self.arg = arg
+
+    def __repr__(self):
+        return f"List[{self.function}]({self.arg})"
+
 
 class State:
     """a state that maps a given feature name to a value"""
