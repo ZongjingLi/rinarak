@@ -22,7 +22,7 @@ logger = get_logger(__file__)
 class FunctionExecutor(nn.Module):
     def __init__(self, domain : 'Domain', concept_dim = 128):
         super().__init__()
-        self._domain = domain
+        self._domain : 'Domain' = domain
         self.concept_dim = concept_dim
 
         self.parser = Expression # Expression class allows prasing, but other parsers should be allowed
@@ -33,6 +33,9 @@ class FunctionExecutor(nn.Module):
             if hasattr(self, function_name):
                 self.register_function(function_name, self.unwrap_values(getattr(self, function_name)))
                 logger.info('Function {} automatically registered.'.format(function_name))
+
+        self.function_output_types = None
+        self.function_input_types = None
 
         self._grounding = None
     

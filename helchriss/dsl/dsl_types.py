@@ -290,6 +290,7 @@ class ListType(UniformSequenceType):
         return True
 
 
+
 class BatchedListType(UniformSequenceType):
     def __init__(self, element_type: TypeBase, index_dtypes: Sequence[ObjectType], alias: Optional[str] = None):
         typename = f'{element_type.typename}[{", ".join(t.typename for t in index_dtypes)}]'
