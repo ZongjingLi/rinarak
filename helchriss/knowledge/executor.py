@@ -27,6 +27,9 @@ class FunctionExecutor(nn.Module):
             logger.warning("The input domain is empty, creating an empty domain")
             self.parser = Expression # Expression class allows prasing, but other parsers should be allowed
             self._grounding = None
+            self._function_registry = dict() # allowed neural registry
+            self.function_output_type = {}
+            self.function_input_types = {}
             return
         
         self._domain : 'Domain' = domain
