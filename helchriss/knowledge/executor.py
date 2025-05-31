@@ -30,7 +30,6 @@ class FunctionExecutor(nn.Module):
             return
         
         self._domain : 'Domain' = domain
-        self._domain = domain
         self.concept_dim = concept_dim
 
         self.parser = Expression # Expression class allows prasing, but other parsers should be allowed
@@ -181,8 +180,10 @@ class FunctionExecutor(nn.Module):
             if func_or_ftype.__name__ not in self.domain.functions:
                 raise NameError(f'Function {func_or_ftype.__name__} is not registered in the domain.')
 
+            #print(self.domain.functions[func_or_ftype.__name__])
+            #ftype = self.domain.functions[func_or_ftype.__name__].ftype
             func_dict = self.domain.functions[func_or_ftype.__name__]
-
+            #print(func_dict)
             ftype = FuncType(func_dict["parameters"], func_dict["type"])
 
         def wrapper(func):
