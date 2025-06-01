@@ -25,31 +25,27 @@ class FunctionExecutor(nn.Module):
         super().__init__()
         if domain is None:
             logger.warning("The input domain is empty, creating an empty domain")
-            self.parser = Expression # Expression class allows prasing, but other parsers should be allowed
-            self._grounding = None
-            self._function_registry = dict() # allowed neural registry
-            self.function_output_type = {}
-            self.function_input_types = {}
-            return
+
         
         self._domain : 'Domain' = domain
         self.concept_dim = concept_dim
 
-        self.parser = Expression # Expression class allows prasing, but other parsers should be allowed
+        self.parser = Expression # Expression class allows parsing, but other parsers should be allowed
         self._function_registry = dict() # allowed neural registry
 
         self.function_output_type = {}
         self.function_input_types = {}
 
-        for function_name, function in domain.functions.items():
+        if domain is not None:
+            for function_name, function in domain.functions.items():
 
-            if hasattr(self, function_name):
-                self.register_function(function_name, self.unwrap_values(getattr(self, function_name)))
-                logger.info('Function {} automatically registered.'.format(function_name))
+                if hasattr(self, function_name):
+                    self.register_function(function_name, self.unwrap_values(getattr(self, function_name)))
+                    logger.info('Function {} automatically registered.'.format(function_name))
 
 
-            self.function_output_type[function_name] = function["type"]
-            self.function_input_types[function_name] = [arg.split("-")[-1] for arg in function["parameters"]]
+                self.function_output_type[function_name] = function["type"]
+                self.function_input_types[function_name] = [arg.split("-")[-1] for arg in function["parameters"]]
 
 
         self._grounding = None
